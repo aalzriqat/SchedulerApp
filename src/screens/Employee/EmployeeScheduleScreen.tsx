@@ -1,24 +1,39 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Alert, RefreshControl as RNRefreshControl } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
-// import type { RootState, AppDispatch } from '../../../store/store';
-import { 
-  fetchUserSchedule, 
+import { AppDispatch, RootState } from '../../store/store'; // Corrected import for RootState and AppDispatch
+import {
+  fetchUserSchedule,
   updateShiftAvailabilityOptimistic,
-  updateUserShiftAvailability, // Re-add this import
-  Shift, 
-  clearEmployeeScheduleError 
+  updateUserShiftAvailability,
+  Shift,
+  clearEmployeeScheduleErrors // Corrected action name
 } from '../../store/slices/employeeScheduleSlice';
 import { User } from '../../store/slices/authSlice';
+import { ThemedView } from '@/components/ThemedView';
+import { ThemedText } from '@/components/ThemedText';
+import { useThemeColor } from '@/hooks/useThemeColor';
 
 const EmployeeScheduleScreen = () => {
-  const dispatch = useDispatch<any>(); // Use AppDispatch for typed dispatch
-  const { user }: { user: User | null } = useSelector((state: any) => state.auth);
-  const { 
-    shifts, 
-    isLoading, 
-    error 
-  } = useSelector((state: any) => state.employeeSchedule);
+  const dispatch = useDispatch<AppDispatch>();
+  const { user } = useSelector((state: RootState) => state.auth); // User type inferred from RootState
+  const {
+    shifts,
+    isLoading,
+    error
+  } = useSelector((state: RootState) => state.employeeSchedule);
+
+  // Theme colors
+  const themedBackgroundColor = useThemeColor({}, 'background');
+  const themedTextColor = useThemeColor({}, 'text');
+  const themedBorderColor = useThemeColor({}, 'border');
+  const themedCardBackgroundColor = useThemeColor({}, 'cardBackground');
+  const themedPrimaryButtonBg = useThemeColor({}, 'buttonPrimaryBackground');
+  const themedPrimaryButtonText = useThemeColor({}, 'buttonPrimaryText');
+  const themedErrorTextColor = useThemeColor({}, 'errorText');
+  const themedSuccessButtonBg = useThemeColor({}, 'statusApprovedBackground'); // For 'Available'
+  const themedSuccessButtonText = useThemeColor({}, 'statusApprovedText');
+
 
   useEffect(() => {
     if (user && user.id) {
@@ -27,32 +42,41 @@ const EmployeeScheduleScreen = () => {
     } else {
       console.log('EmployeeScheduleScreen: User ID not available, cannot fetch schedule.');
     }
-  }, [user?.id, dispatch]); // Changed dependency to user?.id
+  }, [user?.id, dispatch]);
 
   useEffect(() => {
     if (error) {
       Alert.alert('Schedule Error', error);
-      dispatch(clearEmployeeScheduleError());
+      dispatch(clearEmployeeScheduleErrors()); // Corrected action name
     }
   }, [error, dispatch]);
+  
+  const onRefresh = () => {
+    if (user && user.id) {
+      dispatch(fetchUserSchedule(user.id));
+    }
+  };
 
   const toggleSwapAvailability = (shiftId: string) => {
     const shift = shifts.find((s: Shift) => s._id === shiftId);
     if (shift) {
-      const newAvailability = !shift.isAvailableForSwap;
+      const newAvailability = !shift.isOpenForSwap; // Corrected field name
       // Optimistic update first
       dispatch(updateShiftAvailabilityOptimistic({ shiftId, isAvailableForSwap: newAvailability }));
       
       // Then dispatch thunk to update backend
+      // Note: updateUserShiftAvailability in apiService.ts expects isAvailableForSwap,
+      // ensure backend route for PATCH /schedules/:scheduleId/availability is added and handles this field name.
+      // For now, the thunk passes it as isAvailableForSwap.
       dispatch(updateUserShiftAvailability({ scheduleId: shiftId, isAvailableForSwap: newAvailability }))
         .unwrap()
-        .then((updatedShift: Shift) => { 
-          console.log(`Swap availability successfully updated on backend for shift ID: ${updatedShift._id} to ${updatedShift.isAvailableForSwap}`);
+        .then((updatedShift: Shift) => {
+          console.log(`Swap availability successfully updated on backend for shift ID: ${updatedShift._id} to ${updatedShift.isOpenForSwap}`); // Corrected field name
         })
-        .catch((apiError: any) => { 
+        .catch((apiError: any) => {
           console.error(`Failed to update swap availability on backend for shift ID: ${shiftId}`, apiError);
           // Revert optimistic update
-          dispatch(updateShiftAvailabilityOptimistic({ shiftId, isAvailableForSwap: shift.isAvailableForSwap })); 
+          dispatch(updateShiftAvailabilityOptimistic({ shiftId, isAvailableForSwap: shift.isOpenForSwap })); // Corrected field name
           Alert.alert('Update Failed', `Could not update swap availability. Error: ${apiError.message || 'Unknown error'}`);
         });
       console.log(`Dispatched toggle swap availability for shift ID: ${shiftId} to ${newAvailability}`);
@@ -60,71 +84,88 @@ const EmployeeScheduleScreen = () => {
   };
 
   const renderItem = ({ item }: { item: Shift }) => (
-    <View style={styles.shiftItem}>
-      <Text style={styles.shiftDate}>Date: {new Date(item.date).toLocaleDateString()}</Text>
-      <Text>Time: {item.startTime} - {item.endTime}</Text>
-      <Text>Role: {item.role || 'N/A'}</Text>
-      <Text>Location: {item.location || 'N/A'}</Text>
+    <ThemedView style={[styles.shiftItem, {backgroundColor: themedCardBackgroundColor, borderColor: themedBorderColor}]}>
+      <ThemedText style={styles.shiftDate}>Week: {item.week}</ThemedText>
+      <ThemedText>Working Hours: {item.workingHours}</ThemedText>
+      <ThemedText>Off Days: {item.offDays.join(', ')}</ThemedText>
+      <ThemedText>Created At: {new Date(item.createdAt).toLocaleDateString()}</ThemedText>
+      {/* Role and Location are not in the current BackendShift structure from the logs */}
+      {/* <ThemedText>Role: {item.role || 'N/A'}</ThemedText> */}
+      {/* <ThemedText>Location: {item.location || 'N/A'}</ThemedText> */}
       <TouchableOpacity
         style={[
           styles.swapButton,
-          item.isAvailableForSwap ? styles.swapButtonAvailable : styles.swapButtonNotAvailable,
+          item.isOpenForSwap // Corrected field name
+            ? {backgroundColor: themedSuccessButtonBg}
+            : {backgroundColor: themedPrimaryButtonBg},
         ]}
         onPress={() => toggleSwapAvailability(item._id)}
       >
-        <Text style={styles.swapButtonText}>
-          {item.isAvailableForSwap ? 'Available for Swap' : 'Make Available'}
+        <Text style={[styles.swapButtonText, {
+            color: item.isOpenForSwap ? themedSuccessButtonText : themedPrimaryButtonText // Corrected field name
+        }]}>
+          {item.isOpenForSwap ? 'Available for Swap' : 'Make Available'} {/* Corrected field name */}
         </Text>
       </TouchableOpacity>
-    </View>
+    </ThemedView>
   );
 
   if (isLoading && shifts.length === 0) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text>Loading your schedule...</Text>
-      </View>
+      <ThemedView style={[styles.container, styles.centered, {backgroundColor: themedBackgroundColor}]}>
+        <ActivityIndicator size="large" color={themedPrimaryButtonBg} />
+        <ThemedText>Loading your schedule...</ThemedText>
+      </ThemedView>
     );
   }
   
   if (!isLoading && shifts.length === 0 && !error) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <Text>No upcoming shifts found.</Text>
-      </View>
+      <ThemedView style={[styles.container, styles.centered, {backgroundColor: themedBackgroundColor}]}>
+        <ThemedText>No upcoming shifts found.</ThemedText>
+      </ThemedView>
+    );
+  }
+   if (error && shifts.length === 0) { // Show error prominently if no shifts and error
+    return (
+      <ThemedView style={[styles.container, styles.centered, {backgroundColor: themedBackgroundColor}]}>
+        <ThemedText style={[styles.errorText, {color: themedErrorTextColor}]}>Error: {error}</ThemedText>
+        <TouchableOpacity onPress={onRefresh} style={[styles.swapButton, {backgroundColor: themedPrimaryButtonBg, paddingHorizontal: 20}]}>
+            <Text style={[styles.swapButtonText, {color: themedPrimaryButtonText}]}>Retry</Text>
+        </TouchableOpacity>
+      </ThemedView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>My Schedule</Text>
-      {isLoading && shifts.length > 0 && <ActivityIndicator style={styles.inlineLoader} size="small" color="#0000ff" />}
+    <ThemedView style={[styles.container, {backgroundColor: themedBackgroundColor}]}>
+      <ThemedText type="title" style={styles.title}>My Schedule</ThemedText>
+      {isLoading && shifts.length > 0 && <ActivityIndicator style={styles.inlineLoader} size="small" color={themedPrimaryButtonBg} />}
       <FlatList
         data={shifts}
         renderItem={renderItem}
         keyExtractor={(item) => item._id}
         style={styles.list}
         ListEmptyComponent={!isLoading && !error ? (
-            <View style={styles.centered}><Text>No shifts scheduled.</Text></View>
+            <ThemedView style={[styles.centered, {backgroundColor: themedBackgroundColor}]}><ThemedText>No shifts scheduled.</ThemedText></ThemedView>
         ) : null}
+        refreshControl={<RNRefreshControl refreshing={isLoading} onRefresh={onRefresh} colors={[themedPrimaryButtonBg]} tintColor={themedPrimaryButtonBg}/>}
       />
-    </View>
+    </ThemedView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  container: { // bg applied inline
     flex: 1,
     padding: 16,
-    backgroundColor: '#fff',
   },
-  centered: {
+  centered: { // bg applied inline
     justifyContent: 'center',
     alignItems: 'center',
-    flex: 1, 
+    flex: 1,
   },
-  title: {
+  title: { // color from ThemedText
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 16,
@@ -133,44 +174,36 @@ const styles = StyleSheet.create({
   list: {
     width: '100%',
   },
-  shiftItem: {
-    backgroundColor: '#f0f0f0',
+  shiftItem: { // bg and borderColor applied inline
     padding: 16,
     marginBottom: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
   },
-  shiftDate: {
+  shiftDate: { // color from ThemedText
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 4,
   },
-  swapButton: {
+  swapButton: { // bg applied inline
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 5,
     marginTop: 10,
     alignItems: 'center',
   },
-  swapButtonAvailable: {
-    backgroundColor: '#22c55e', 
-  },
-  swapButtonNotAvailable: {
-    backgroundColor: '#3b82f6', 
-  },
-  swapButtonText: {
-    color: 'white',
+  // swapButtonAvailable & NotAvailable removed as bg applied dynamically
+  swapButtonText: { // color applied inline
     fontWeight: 'bold',
   },
-  errorText: { 
-    color: 'red',
+  errorText: { // color applied inline
     textAlign: 'center',
     marginVertical: 10,
+    fontSize: 16,
   },
   inlineLoader: {
     marginVertical: 10,
-    alignSelf: 'center', 
+    alignSelf: 'center',
   }
 });
 

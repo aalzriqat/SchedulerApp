@@ -6,7 +6,7 @@ export interface User {
   name: string;
   email: string;
   role: string;
-  // Removed isOpenForSwap from User interface here
+  isOpenForSwap?: boolean; // Added back, as it's managed with profile updates
 }
 
 interface AuthState {

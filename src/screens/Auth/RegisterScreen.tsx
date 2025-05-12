@@ -2,20 +2,21 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch, RootState } from '../../store/store'; // Use AppDispatch and RootState
 import { registerRequest, registerSuccessNoAuth, registerFailure, clearAuthError } from '../../store/slices/authSlice'; // Adjusted path
-// import type { RootState } from '../../store/store';
+import { registerUserApi } from '../../api/apiService'; // Import the new API function
 
 const RegisterScreen = () => {
   const router = useRouter();
-  const dispatch = useDispatch();
-  // const { isLoading, error } = useSelector((state: RootState) => state.auth);
-  const { isLoading, error } = useSelector((state: any) => state.auth);
+  const dispatch = useDispatch<AppDispatch>(); // Use AppDispatch
+  const { isLoading, error } = useSelector((state: RootState) => state.auth); // Use RootState
 
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState('Employee'); // Default role, or add a picker
 
   React.useEffect(() => {
     if (error) {
@@ -24,7 +25,7 @@ const RegisterScreen = () => {
     }
   }, [error, dispatch]);
 
-  const handleRegister = () => {
+  const handleRegister = async () => { // Make async
     if (!username.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       Alert.alert('Validation Error','Please fill in all fields.');
       return;
@@ -38,25 +39,22 @@ const RegisterScreen = () => {
       return;
     }
     
-    dispatch(registerRequest()); // Indicates start of registration process
-    console.log('Register attempt with:', username, email, password);
+    dispatch(registerRequest());
+    console.log('Register attempt with:', username, email, password, role);
 
-    // Simulate API call
-    setTimeout(() => {
-      try {
-        // Simulate a successful registration
-        console.log('Simulated registration success for:', email);
-        dispatch(registerSuccessNoAuth()); // Dispatch success that doesn't auto-login
-        Alert.alert('Registration Successful', 'Please login with your new account.', [
-          { text: 'OK', onPress: () => router.replace('/login') }
-        ]);
-        // If auto-login after registration was desired, you would dispatch authProcessSuccess here
-        // with the new user data and a token from the backend.
-      } catch (e) {
-        console.error('Registration simulation error', e);
-        dispatch(registerFailure('An unexpected error occurred during registration.'));
-      }
-    }, 1000);
+    try {
+      // Actual API call
+      const response = await registerUserApi({ username, email, password, role });
+      console.log('Registration API success:', response.message);
+      dispatch(registerSuccessNoAuth());
+      Alert.alert('Registration Successful', response.message || 'Please login with your new account.', [
+        { text: 'OK', onPress: () => router.replace('/login') }
+      ]);
+    } catch (apiError: any) {
+      console.error('Registration API error', apiError);
+      dispatch(registerFailure(apiError.message || 'An unexpected error occurred during registration.'));
+      // Alert is handled by useEffect for error state
+    }
   };
 
   return (
@@ -96,9 +94,18 @@ const RegisterScreen = () => {
           onChangeText={setConfirmPassword}
           secureTextEntry
         />
+        
+        {/* Optional: Role Picker if you want to allow role selection during registration
+            Otherwise, 'Employee' is default or set by backend.
+        <Text style={styles.label}>Role:</Text>
+        <Picker selectedValue={role} style={styles.input} onValueChange={(itemValue) => setRole(itemValue)}>
+          <Picker.Item label="Employee" value="Employee" />
+          <Picker.Item label="Admin" value="Admin" />
+        </Picker>
+        */}
 
-        <TouchableOpacity style={styles.button} onPress={handleRegister}>
-          <Text style={styles.buttonText}>Register</Text>
+        <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={isLoading}>
+          <Text style={styles.buttonText}>{isLoading ? 'Registering...' : 'Register'}</Text>
         </TouchableOpacity>
 
         <View style={styles.signInContainer}>

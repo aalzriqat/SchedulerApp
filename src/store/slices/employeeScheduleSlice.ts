@@ -1,5 +1,13 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { getEmployeeSchedule, updateShiftSwapAvailability, BackendShift } from '../../api/apiService';
+import {
+  getEmployeeSchedule,
+  updateShiftSwapAvailability,
+  BackendShift,
+  getAllSchedulesAdmin,
+  uploadScheduleDataAdmin,
+  AdminScheduleView,
+  getFilteredAvailableShiftsApi // Added for new thunk
+} from '../../api/apiService';
 import { User } from './authSlice';
 
 // Frontend Shift type, should include isAvailableForSwap
@@ -8,20 +16,40 @@ export interface Shift extends BackendShift {
 }
 
 interface EmployeeScheduleState {
-  shifts: Shift[];
-  isLoading: boolean;
+  shifts: Shift[]; // For individual employee view
+  allEmployeeSchedules: AdminScheduleView[]; // For admin view
+  isLoading: boolean; // For individual employee schedule
+  isLoadingAllAdmin: boolean; // For admin fetching all schedules
+  isUploadingAdmin: boolean; // For admin uploading schedule
   error: string | null;
+  errorAllAdmin: string | null;
+  errorUploadingAdmin: string | null;
+  uploadSuccessMessageAdmin: string | null;
+  // New state fields for filtered swappable shifts
+  filteredSwappableShifts: BackendShift[];
+  isLoadingFilteredSwappable: boolean;
+  errorFilteredSwappable: string | null;
 }
 
 const initialState: EmployeeScheduleState = {
   shifts: [],
+  allEmployeeSchedules: [],
   isLoading: false,
+  isLoadingAllAdmin: false,
+  isUploadingAdmin: false,
   error: null,
+  errorAllAdmin: null,
+  errorUploadingAdmin: null,
+  uploadSuccessMessageAdmin: null,
+  // Initialize new state fields
+  filteredSwappableShifts: [],
+  isLoadingFilteredSwappable: false,
+  errorFilteredSwappable: null,
 };
 
 export const fetchUserSchedule = createAsyncThunk<
-  Shift[], 
-  string, 
+  Shift[],
+  string,
   { rejectValue: string }
 >('employeeSchedule/fetchUserSchedule', async (employeeId, thunkAPI) => {
   console.log(`fetchUserSchedule: Thunk started for employeeId: ${employeeId}`);
@@ -60,6 +88,51 @@ export const updateUserShiftAvailability = createAsyncThunk<
   }
 });
 
+// Thunk for Admin to fetch all schedules
+export const fetchAllSchedulesForAdmin = createAsyncThunk<
+  AdminScheduleView[],
+  void, // No argument needed
+  { rejectValue: string }
+>('employeeSchedule/fetchAllSchedulesForAdmin', async (_, thunkAPI) => {
+  try {
+    const data = await getAllSchedulesAdmin();
+    return data;
+  } catch (error: any) {
+    return thunkAPI.rejectWithValue(error.message || 'Failed to fetch all schedules for admin');
+  }
+});
+
+// Thunk for Admin to upload schedule data
+export const uploadScheduleByAdmin = createAsyncThunk<
+  { message: string, newSchedules?: any }, // Expected success response
+  any, // scheduleData: type depends on how upload is handled (e.g., string for CSV, object for JSON)
+  { rejectValue: string }
+>('employeeSchedule/uploadScheduleByAdmin', async (scheduleData, thunkAPI) => {
+  try {
+    const response = await uploadScheduleDataAdmin(scheduleData);
+    // Optionally, if response contains newSchedules, dispatch another action or handle here
+    // For now, just returning the message.
+    return response;
+  } catch (error: any) {
+    return thunkAPI.rejectWithValue(error.message || 'Failed to upload schedule data');
+  }
+});
+
+// Thunk for fetching filtered available shifts for swap
+export const fetchFilteredAvailableShifts = createAsyncThunk<
+  BackendShift[], // Return type
+  { week: number; excludeUserId: string }, // Argument type
+  { rejectValue: string }
+>('employeeSchedule/fetchFilteredAvailableShifts', async (params, thunkAPI) => {
+  try {
+    const data = await getFilteredAvailableShiftsApi(params.week, params.excludeUserId); // Removed 'api.'
+    return data;
+  } catch (error: any) {
+    return thunkAPI.rejectWithValue(error.message || 'Failed to fetch filtered available shifts');
+  }
+});
+
+
 const employeeScheduleSlice = createSlice({
   name: 'employeeSchedule',
   initialState,
@@ -70,15 +143,35 @@ const employeeScheduleSlice = createSlice({
     ) => {
       const index = state.shifts.findIndex(shift => shift._id === action.payload.shiftId);
       if (index !== -1) {
-        state.shifts[index].isAvailableForSwap = action.payload.isAvailableForSwap;
+        state.shifts[index].isOpenForSwap = action.payload.isAvailableForSwap; // Corrected field name
       }
+      // Also update in allEmployeeSchedules if the shift exists there
+      state.allEmployeeSchedules.forEach(empSchedule => {
+        const shiftIndex = empSchedule.shifts.findIndex(s => s._id === action.payload.shiftId);
+        if (shiftIndex !== -1) {
+          // Assuming empSchedule.shifts elements are also of type Shift (or BackendShift)
+          // and thus have isOpenForSwap
+          const shiftToUpdate = empSchedule.shifts[shiftIndex] as Shift; // Cast to ensure type safety
+          shiftToUpdate.isOpenForSwap = action.payload.isAvailableForSwap; // Corrected field name
+        }
+      });
     },
-    clearEmployeeScheduleError: (state) => {
+    clearEmployeeScheduleErrors: (state) => { // Renamed for clarity
       state.error = null;
+      state.errorAllAdmin = null;
+      state.errorUploadingAdmin = null;
+      state.uploadSuccessMessageAdmin = null;
+      state.errorFilteredSwappable = null; // Clear this error too
+    },
+    resetUploadStatusAdmin: (state) => {
+      state.isUploadingAdmin = false;
+      state.errorUploadingAdmin = null;
+      state.uploadSuccessMessageAdmin = null;
     }
   },
   extraReducers: (builder) => {
     builder
+      // Fetch User Schedule (Employee)
       .addCase(fetchUserSchedule.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -91,20 +184,74 @@ const employeeScheduleSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload ?? 'Failed to fetch schedule';
       })
+      // Update User Shift Availability (Employee)
       .addCase(updateUserShiftAvailability.pending, (state) => {
-        state.error = null; 
+        // state.isLoading = true; // Or a more specific loading state
+        state.error = null;
       })
       .addCase(updateUserShiftAvailability.fulfilled, (state, action: PayloadAction<Shift>) => {
+        // state.isLoading = false;
         const index = state.shifts.findIndex(shift => shift._id === action.payload._id);
         if (index !== -1) {
-          state.shifts[index] = action.payload; 
+          state.shifts[index] = action.payload;
         }
+         // Also update in allEmployeeSchedules if the shift exists there
+        state.allEmployeeSchedules.forEach(empSchedule => {
+          const shiftIndex = empSchedule.shifts.findIndex(s => s._id === action.payload._id);
+          if (shiftIndex !== -1) {
+            empSchedule.shifts[shiftIndex] = action.payload;
+          }
+        });
       })
       .addCase(updateUserShiftAvailability.rejected, (state, action) => {
+        // state.isLoading = false;
         state.error = action.payload ?? 'Failed to update swap availability';
+      })
+      // Fetch All Schedules (Admin)
+      .addCase(fetchAllSchedulesForAdmin.pending, (state) => {
+        state.isLoadingAllAdmin = true;
+        state.errorAllAdmin = null;
+      })
+      .addCase(fetchAllSchedulesForAdmin.fulfilled, (state, action: PayloadAction<AdminScheduleView[]>) => {
+        state.isLoadingAllAdmin = false;
+        state.allEmployeeSchedules = action.payload;
+      })
+      .addCase(fetchAllSchedulesForAdmin.rejected, (state, action) => {
+        state.isLoadingAllAdmin = false;
+        state.errorAllAdmin = action.payload ?? 'Failed to fetch all schedules';
+      })
+      // Upload Schedule (Admin)
+      .addCase(uploadScheduleByAdmin.pending, (state) => {
+        state.isUploadingAdmin = true;
+        state.errorUploadingAdmin = null;
+        state.uploadSuccessMessageAdmin = null;
+      })
+      .addCase(uploadScheduleByAdmin.fulfilled, (state, action: PayloadAction<{ message: string, newSchedules?: any }>) => {
+        state.isUploadingAdmin = false;
+        state.uploadSuccessMessageAdmin = action.payload.message;
+        // Optionally, if newSchedules are returned and structured correctly, update allEmployeeSchedules
+        // This might require a more sophisticated merge or replace strategy.
+        // For now, admin might need to re-fetch all schedules to see uploaded ones.
+      })
+      .addCase(uploadScheduleByAdmin.rejected, (state, action) => {
+        state.isUploadingAdmin = false;
+        state.errorUploadingAdmin = action.payload ?? 'Failed to upload schedule';
+      })
+      // Fetch Filtered Available Shifts
+      .addCase(fetchFilteredAvailableShifts.pending, (state) => {
+        state.isLoadingFilteredSwappable = true;
+        state.errorFilteredSwappable = null;
+      })
+      .addCase(fetchFilteredAvailableShifts.fulfilled, (state, action: PayloadAction<BackendShift[]>) => {
+        state.isLoadingFilteredSwappable = false;
+        state.filteredSwappableShifts = action.payload;
+      })
+      .addCase(fetchFilteredAvailableShifts.rejected, (state, action) => {
+        state.isLoadingFilteredSwappable = false;
+        state.errorFilteredSwappable = action.payload ?? 'Failed to fetch filtered shifts';
       });
   },
 });
 
-export const { updateShiftAvailabilityOptimistic, clearEmployeeScheduleError } = employeeScheduleSlice.actions;
+export const { updateShiftAvailabilityOptimistic, clearEmployeeScheduleErrors, resetUploadStatusAdmin } = employeeScheduleSlice.actions;
 export default employeeScheduleSlice.reducer;

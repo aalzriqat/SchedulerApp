@@ -1,103 +1,185 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, ScrollView, RefreshControl as RNRefreshControl, Button, TouchableOpacity, Alert } from 'react-native'; // Added Alert
 import { useSelector, useDispatch } from 'react-redux';
-// import type { RootState } from '../../../store/store';
-import { fetchLeaveRequestsStart, LeaveRequest } from '../../store/slices/leaveSlice'; // Import LeaveRequest from slice
-
-// Mock data is now initial state in leaveSlice.ts, so no need for MOCK_LEAVE_REQUESTS here.
+import { AppDispatch, RootState } from '../../store/store';
+import { fetchMyLeaveRequests, cancelMyLeaveRequest, LeaveRequest, clearLeaveErrors } from '../../store/slices/leaveSlice';
+import { ThemedView } from '@/components/ThemedView';
+import { ThemedText } from '@/components/ThemedText';
+import { useThemeColor } from '@/hooks/useThemeColor';
+import { FontAwesome } from '@expo/vector-icons';
 
 const LeaveStatusScreen = () => {
-  const dispatch = useDispatch();
-  // const { leaveRequests, isLoading, error } = useSelector((state: RootState) => state.leaves);
-  const { leaveRequests, isLoading, error } = useSelector((state: any) => state.leaves); // Get from actual slice state
+  const dispatch = useDispatch<AppDispatch>();
+  const { leaveRequests, isLoading, error, isUpdating, updateError } = useSelector((state: RootState) => state.leaves);
+  const currentUser = useSelector((state: RootState) => state.auth.user);
+
+  // Theme colors
+  const themedBackgroundColor = useThemeColor({}, 'background');
+  const themedTextColor = useThemeColor({}, 'text');
+  const themedBorderColor = useThemeColor({}, 'border');
+  const themedCardBackgroundColor = useThemeColor({}, 'cardBackground');
+  const themedSubtleTextColor = useThemeColor({}, 'subtleText');
+  const themedErrorTextColor = useThemeColor({}, 'errorText');
+  const themedPrimaryButtonBg = useThemeColor({}, 'buttonPrimaryBackground');
+  const themedDangerButtonBg = useThemeColor({}, 'statusRejectedBackground'); // For cancel button
+  const themedDangerButtonText = useThemeColor({}, 'statusRejectedText');
+  
+  const statusColors = { // For displaying status text
+    pending: useThemeColor({}, 'statusPendingText'),
+    approved: useThemeColor({}, 'statusApprovedText'),
+    rejected: useThemeColor({}, 'statusRejectedText'),
+    cancelled: useThemeColor({}, 'statusCancelledText'),
+  };
+
 
   useEffect(() => {
-    // dispatch(fetchLeaveRequestsStart()); // Dispatch if you want to simulate a fetch on screen load
-    // For now, data is preloaded in slice's initial state.
-    console.log('LeaveStatusScreen: Using leave request data from Redux slice.');
-    if (leaveRequests.length === 0 && !isLoading) { // Example: if initial state was empty and we wanted to fetch
-        // dispatch(fetchLeaveRequestsStart());
-        // setTimeout(() => dispatch(fetchLeaveRequestsSuccess(MOCK_LEAVE_REQUESTS_INITIAL_FROM_SLICE_OR_API)), 1000)
+    if (currentUser && currentUser.id) {
+      dispatch(fetchMyLeaveRequests(currentUser.id));
     }
-  }, [dispatch, leaveRequests.length, isLoading]); // Added dependencies
+    return () => {
+      dispatch(clearLeaveErrors());
+    }
+  }, [dispatch, currentUser?.id]);
+  
+  useEffect(() => {
+    if (error || updateError) {
+      Alert.alert('Leave Request Error', error || updateError || 'An unknown error occurred.');
+      dispatch(clearLeaveErrors());
+    }
+  }, [error, updateError, dispatch]);
+
+
+  const onRefresh = () => {
+    if (currentUser && currentUser.id) {
+      dispatch(fetchMyLeaveRequests(currentUser.id));
+    }
+  };
+
+  const handleCancelRequest = (leaveId: string) => {
+    Alert.alert(
+      "Cancel Leave Request",
+      "Are you sure you want to cancel this leave request?",
+      [
+        { text: "No", style: "cancel" },
+        { text: "Yes, Cancel", onPress: () => dispatch(cancelMyLeaveRequest(leaveId)), style: 'destructive' }
+      ]
+    );
+  };
 
   const renderLeaveItem = ({ item }: { item: LeaveRequest }) => (
-    <View style={styles.leaveItem}>
-      <Text style={styles.leaveHeader}>Type: {item.leaveType} (Status: {item.status})</Text>
-      <Text>Dates: {item.startDate} to {item.endDate}</Text>
-      <Text>Reason: {item.reason}</Text>
-      <Text>Submitted: {new Date(item.submittedAt).toLocaleDateString()}</Text>
-      {/* TODO: Add button to cancel pending requests */}
-    </View>
+    <ThemedView style={[styles.leaveItem, {backgroundColor: themedCardBackgroundColor, borderColor: themedBorderColor}]}>
+      <ThemedText style={styles.leaveHeader}>Type: {item.leaveType}
+        (<ThemedText style={{color: statusColors[item.status] || themedTextColor, fontWeight: 'bold'}}>{item.status.toUpperCase()}</ThemedText>)
+      </ThemedText>
+      {/* Backend provides fromDate and toDate (which is a duration string array) */}
+      <ThemedText>Date: {new Date(item.fromDate).toLocaleDateString()}</ThemedText>
+      <ThemedText>Duration: {Array.isArray(item.toDate) ? item.toDate.join(', ') : item.toDate}</ThemedText>
+      <ThemedText>Reason: {item.reason}</ThemedText>
+      <ThemedText style={{color: themedSubtleTextColor, fontSize: 12, marginTop: 4}}>Created: {new Date(item.createdAt).toLocaleDateString()}</ThemedText>
+      {item.adminNotes && <ThemedText style={{marginTop: 4}}><ThemedText style={styles.bold}>Admin Notes:</ThemedText> {item.adminNotes}</ThemedText>}
+      {item.status === 'pending' && (
+        <TouchableOpacity
+          style={[styles.actionButton, {backgroundColor: themedDangerButtonBg}]}
+          onPress={() => handleCancelRequest(item._id)}
+          disabled={isUpdating}
+        >
+          <FontAwesome name="times-circle" size={14} color={themedDangerButtonText} />
+          <Text style={[styles.actionButtonText, {color: themedDangerButtonText}]}> Cancel Request</Text>
+        </TouchableOpacity>
+      )}
+      {isUpdating && <ActivityIndicator size="small" color={themedPrimaryButtonBg} style={{marginTop: 5}}/>}
+    </ThemedView>
   );
 
-  if (isLoading) {
+  if (isLoading && leaveRequests.length === 0) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text>Loading leave requests...</Text>
-      </View>
+      <ThemedView style={[styles.container, styles.centered, {backgroundColor: themedBackgroundColor}]}>
+        <ActivityIndicator size="large" color={themedPrimaryButtonBg} />
+        <ThemedText>Loading leave requests...</ThemedText>
+      </ThemedView>
     );
   }
-
+  
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>My Leave Requests</Text>
-      {leaveRequests.length === 0 && !isLoading ? (
-        <Text style={styles.noRequestsText}>You haven't submitted any leave requests.</Text>
+    <ScrollView
+      style={[styles.container, {backgroundColor: themedBackgroundColor}]}
+      refreshControl={<RNRefreshControl refreshing={isLoading} onRefresh={onRefresh} colors={[themedPrimaryButtonBg]} tintColor={themedPrimaryButtonBg}/>}
+    >
+      <ThemedText type="title" style={styles.title}>My Leave Requests</ThemedText>
+      {(leaveRequests.length === 0 && !isLoading && !error) ? (
+        <ThemedView style={[styles.centered, {paddingVertical: 30, backgroundColor: themedBackgroundColor}]}>
+            <ThemedText style={{color: themedSubtleTextColor}}>You haven't submitted any leave requests.</ThemedText>
+        </ThemedView>
       ) : (
         <FlatList
-          data={leaveRequests}
+          data={leaveRequests.slice().sort((a: LeaveRequest, b: LeaveRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())} // Use createdAt for sorting
           renderItem={renderLeaveItem}
-          keyExtractor={(item) => item.id}
-          scrollEnabled={false} 
+          keyExtractor={(item) => item._id}
+          scrollEnabled={false}
         />
       )}
-      {error && <Text style={styles.errorText}>Error: {error}</Text>}
+      {error && !isLoading && (
+         <ThemedView style={[styles.centered, {paddingVertical: 30, backgroundColor: themedBackgroundColor}]}>
+            <ThemedText style={[styles.errorText, {color: themedErrorTextColor}]}>Error: {error}</ThemedText>
+            <Button title="Retry" onPress={onRefresh} color={themedPrimaryButtonBg} />
+        </ThemedView>
+      )}
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  container: { // bg applied inline
     flex: 1,
     padding: 16,
-    backgroundColor: '#fff',
   },
-  centered: {
+  centered: { // bg applied inline
     justifyContent: 'center',
     alignItems: 'center',
   },
-  title: {
+  title: { // color from ThemedText
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
   },
-  leaveItem: {
-    backgroundColor: '#f9f9f9',
+  leaveItem: { // bg and borderColor applied inline
     padding: 15,
     marginBottom: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
   },
-  leaveHeader: {
+  leaveHeader: { // color from ThemedText
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 8,
   },
-  noRequestsText: {
+  noRequestsText: { // color applied inline
     textAlign: 'center',
-    color: '#666',
     marginTop: 10,
     marginBottom: 20,
   },
-  errorText: {
-    color: 'red',
+  errorText: { // color applied inline
     textAlign: 'center',
     marginTop: 10,
-  }
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  actionButton: { // bg applied inline
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 5,
+    marginTop: 10,
+    alignSelf: 'flex-start',
+  },
+  actionButtonText: { // color applied inline
+    fontWeight: 'bold',
+    marginLeft: 5,
+    fontSize: 14,
+  },
+  bold: { fontWeight: 'bold' }
 });
 
 export default LeaveStatusScreen;

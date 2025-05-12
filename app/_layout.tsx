@@ -6,15 +6,18 @@ import 'react-native-reanimated'; // Keep for side effects if needed by expo-rou
 import { Provider } from 'react-redux';
 import store from '../src/store/store';
 import NavigationController from './NavigationController'; // Import the new controller
+import ErrorBoundary from '../components/ErrorBoundary'; // Import ErrorBoundary
 
 export default function RootLayout() {
-  console.log('RootLayout: Rendering Provider and NavigationController');
+  console.log('RootLayout: Rendering Provider, ErrorBoundary, and NavigationController');
   
-  // This component now only sets up the Redux Provider.
+  // This component now sets up Redux Provider and ErrorBoundary.
   // All conditional logic and navigation is delegated to NavigationController.
   return (
     <Provider store={store}>
-      <NavigationController />
+      <ErrorBoundary>
+        <NavigationController />
+      </ErrorBoundary>
     </Provider>
   );
 }

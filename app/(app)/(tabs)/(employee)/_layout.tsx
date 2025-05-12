@@ -1,18 +1,32 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router'; // Added useRouter
 import { FontAwesome } from '@expo/vector-icons';
+import { TouchableOpacity, Platform } from 'react-native'; // Added TouchableOpacity and Platform
 
 export default function EmployeeTabLayout() { // Renamed component for clarity
   console.log("--- EmployeeTabLayout (app/(app)/(tabs)/(employee)/_layout.tsx) rendering ACTUAL TABS ---");
+  const router = useRouter();
+
   return (
     <Tabs
-      screenOptions={{ tabBarActiveTintColor: 'green' }}
+      screenOptions={{
+        tabBarActiveTintColor: 'green',
+        headerShown: true, // Ensure header is shown to place the button
+        headerRight: () => (
+          <TouchableOpacity
+            onPress={() => router.push('/profileModal')}
+            style={{ marginRight: 15 }}
+          >
+            <FontAwesome name="user-circle" size={26} color={Platform.OS === 'ios' ? 'green' : 'black'} />
+          </TouchableOpacity>
+        ),
+      }}
       initialRouteName="employeeDashboard"
     >
       <Tabs.Screen
-        name="employeeDashboard" // Will correspond to file: employeeDashboard.tsx in this directory
+        name="employeeDashboard"
         options={{
-          title: 'My Dashboard',
+          title: 'Dashboard',
           tabBarIcon: ({ color }) => <FontAwesome size={28} name="user" color={color} />,
         }}
       />
@@ -23,40 +37,33 @@ export default function EmployeeTabLayout() { // Renamed component for clarity
           tabBarIcon: ({ color }) => <FontAwesome size={28} name="calendar-check-o" color={color} />,
         }}
       />
+      {/* Combined Leave Tab */}
       <Tabs.Screen
-        name="availableSwaps" // Will correspond to file: availableSwaps.tsx in this directory
+        name="leave" // NEW: Corresponds to leave.tsx (needs creation)
         options={{
-          title: 'Find Swaps',
-          tabBarIcon: ({ color }) => <FontAwesome size={28} name="exchange" color={color} />,
+          title: 'Leave',
+          tabBarIcon: ({ color }) => <FontAwesome size={28} name="calendar-times-o" color={color} />, // Using calendar-times-o icon
+        }}
+      />
+      {/* New Hub Tab for Swaps & Preferences */}
+      <Tabs.Screen
+        name="hub" // Corresponds to hub/_layout.tsx (directory)
+        options={{
+          title: 'Hub', // Or "Settings & Swaps", "More", etc.
+          tabBarIcon: ({ color }) => <FontAwesome size={28} name="cogs" color={color} />, // Example icon
         }}
       />
       <Tabs.Screen
-        name="swapStatus" // Will correspond to file: swapStatus.tsx in this directory
+        name="employeeNews" // Corresponds to employeeNews.tsx
         options={{
-          title: 'Swap Status',
-          tabBarIcon: ({ color }) => <FontAwesome size={28} name="history" color={color} />,
+          title: 'News',
+          tabBarIcon: ({ color }) => <FontAwesome size={28} name="newspaper-o" color={color} />,
         }}
       />
+      {/* Screen to handle the route but hide the tab */}
       <Tabs.Screen
-        name="preferences" // Will correspond to file: preferences.tsx in this directory
-        options={{
-          title: 'Preferences',
-          tabBarIcon: ({ color }) => <FontAwesome size={28} name="sliders" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="submitLeave" // Will correspond to file: submitLeave.tsx in this directory
-        options={{
-          title: 'Submit Leave',
-          tabBarIcon: ({ color }) => <FontAwesome size={28} name="paper-plane" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="leaveStatus" // Will correspond to file: leaveStatus.tsx in this directory
-        options={{
-          title: 'Leave Status',
-          tabBarIcon: ({ color }) => <FontAwesome size={28} name="list-alt" color={color} />,
-        }}
+        name="swapStatus"
+        options={{ href: null }} // Hides this tab
       />
     </Tabs>
   );
