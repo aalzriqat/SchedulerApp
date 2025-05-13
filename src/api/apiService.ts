@@ -2,7 +2,7 @@ import axios, { InternalAxiosRequestConfig, AxiosError } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
 import { Notification } from '../store/slices/notificationSlice'; // Import Notification type
-const API_BASE_URL = 'http://192.168.1.17:4000'; // Updated IP Address
+const API_BASE_URL = 'https://schedulerappserver-hzie.onrender.com';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -314,8 +314,9 @@ export const getNews = async (): Promise<NewsItem[]> => {
 // API function to post a new news item
 export const postNews = async (newsData: { title: string; content: string }): Promise<NewsItem> => {
   try {
-    // Assuming the backend expects { title, content } and returns the created NewsItem
-    const response = await apiClient.post<NewsItem>('/news', newsData); // Assuming '/news' is the endpoint
+    // Backend expects { title, description }
+    const payload = { title: newsData.title, description: newsData.content };
+    const response = await apiClient.post<NewsItem>('/news', payload); // Assuming '/news' is the endpoint
     return response.data;
   } catch (error: unknown) {
     console.error('Error posting news:', error);

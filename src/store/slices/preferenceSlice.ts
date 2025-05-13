@@ -8,6 +8,10 @@ interface PreferenceState {
   error: string | null;
   isSubmitting: boolean;
   submitError: string | null;
+  // For admin view
+  allPreferences: EmployeePreferenceRecord[];
+  isLoadingAll: boolean;
+  errorAll: string | null;
 }
 
 const initialState: PreferenceState = {
@@ -16,6 +20,10 @@ const initialState: PreferenceState = {
   error: null,
   isSubmitting: false,
   submitError: null,
+  // For admin view
+  allPreferences: [],
+  isLoadingAll: false,
+  errorAll: null,
 };
 
 // Async thunk to fetch current user's preferences
@@ -52,6 +60,19 @@ export const submitMyPreferences = createAsyncThunk(
   }
 );
 
+// Async thunk for admin to fetch all employee preferences
+export const fetchAllEmployeePreferencesAdmin = createAsyncThunk(
+  'preferences/fetchAllEmployeePreferencesAdmin',
+  async (_, { rejectWithValue }) => {
+    try {
+      const data = await api.getAllEmployeePreferences(); // Ensure this API function exists and is correctly imported
+      return data;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch all employee preferences');
+    }
+  }
+);
+
 const preferenceSlice = createSlice({
   name: 'preferences',
   initialState,
@@ -59,9 +80,8 @@ const preferenceSlice = createSlice({
     clearPreferenceError: (state) => {
       state.error = null;
       state.submitError = null;
+      state.errorAll = null; // Also clear admin-related errors
     },
-    // You could add a reducer to manually set/update preferences from local actions if needed
-    // e.g., if a preference is set before a user logs in, or for optimistic updates.
   },
   extraReducers: (builder) => {
     builder
@@ -85,11 +105,24 @@ const preferenceSlice = createSlice({
       })
       .addCase(submitMyPreferences.fulfilled, (state, action: PayloadAction<EmployeePreferenceRecord>) => {
         state.isSubmitting = false;
-        state.currentUserPreference = action.payload; // Update state with the submitted/returned preference
+        state.currentUserPreference = action.payload;
       })
       .addCase(submitMyPreferences.rejected, (state, action) => {
         state.isSubmitting = false;
         state.submitError = action.payload as string;
+      })
+      // Fetch All Employee Preferences (Admin)
+      .addCase(fetchAllEmployeePreferencesAdmin.pending, (state) => {
+        state.isLoadingAll = true;
+        state.errorAll = null;
+      })
+      .addCase(fetchAllEmployeePreferencesAdmin.fulfilled, (state, action: PayloadAction<EmployeePreferenceRecord[]>) => {
+        state.isLoadingAll = false;
+        state.allPreferences = action.payload;
+      })
+      .addCase(fetchAllEmployeePreferencesAdmin.rejected, (state, action) => {
+        state.isLoadingAll = false;
+        state.errorAll = action.payload as string;
       });
   },
 });

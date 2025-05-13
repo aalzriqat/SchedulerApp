@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl, Button, Alert, Modal, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl, Button, Alert, Modal, TextInput, TouchableOpacity, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store/store';
 import { fetchAllLeaveRequestsAdmin, updateLeaveStatusAdmin, LeaveRequest, clearLeaveErrors } from '../../store/slices/leaveSlice';
@@ -149,9 +149,11 @@ const AdminLeaveManagementScreen = () => {
             setSelectedRequest(null);
           }}
         >
-          <View style={styles.modalOverlay}>
-            <ThemedView style={[styles.modalView, {backgroundColor: themedCardBackgroundColor}]}>
-              <ThemedText style={styles.modalTitle}>Manage Request</ThemedText>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback accessible={false}>
+                <ThemedView style={[styles.modalView, {backgroundColor: themedCardBackgroundColor}]}>
+                  <ThemedText style={styles.modalTitle}>Manage Request</ThemedText>
               <ThemedText>Employee: {typeof selectedRequest.user === 'object' ? selectedRequest.user.name || selectedRequest.user.username : selectedRequest.user}</ThemedText>
               <ThemedText>Type: {selectedRequest.leaveType}</ThemedText>
               <ThemedText>Date: {new Date(selectedRequest.fromDate).toLocaleDateString()}</ThemedText>
@@ -186,9 +188,11 @@ const AdminLeaveManagementScreen = () => {
                 </TouchableOpacity>
               </View>
               {isUpdating && <ActivityIndicator style={{marginTop:10}} size="small" color={themedPrimaryButtonBg} />}
-              <Button title="Cancel" onPress={() => { setModalVisible(false); setSelectedRequest(null); }} color={themedSubtleTextColor} />
-            </ThemedView>
-          </View>
+                  <Button title="Cancel" onPress={() => { setModalVisible(false); setSelectedRequest(null); }} color={themedSubtleTextColor} />
+                </ThemedView>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
         </Modal>
       )}
     </ThemedView>

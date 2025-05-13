@@ -90,7 +90,11 @@ const AdminDashboardScreen = () => {
       <ThemedView style={styles.section}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>Leave Trends</ThemedText>
         {renderMetricCard('Total Leave Requests', leaveTrends?.totalRequests)}
-        {leaveTrends?.commonLeaveTypes?.map((lt: { type: string; count: number }) => renderMetricCard(lt.type, lt.count, 'requests'))}
+        {leaveTrends?.commonLeaveTypes?.map((lt: { type: string; count: number }) => (
+          <React.Fragment key={lt.type}>
+            {renderMetricCard(lt.type, lt.count, 'requests')}
+          </React.Fragment>
+        ))}
       </ThemedView>
       
       <ThemedView style={styles.section}>

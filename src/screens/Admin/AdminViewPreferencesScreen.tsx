@@ -2,21 +2,22 @@ import React, { useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl, Button, Alert, Share, Platform } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store/store';
-import { fetchAllEmployeePreferencesAdmin, EmployeePreferenceRecord, clearAllPreferenceErrors } from '../../store/slices/preferenceSlice';
+import { fetchAllEmployeePreferencesAdmin, clearPreferenceError } from '../../store/slices/preferenceSlice'; // Corrected clearPreferenceError
+import { EmployeePreferenceRecord } from '../../api/apiService'; // Import EmployeePreferenceRecord from apiService
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import * as Clipboard from 'expo-clipboard'; // For copying to clipboard
 
 const AdminViewPreferencesScreen = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { allEmployeePreferences, isLoadingAllPreferences, allPreferencesError } = useSelector(
+  const { allPreferences: allEmployeePreferences, isLoadingAll: isLoadingAllPreferences, errorAll: allPreferencesError } = useSelector( // Map new state fields
     (state: RootState) => state.preferences
   );
 
   useEffect(() => {
     dispatch(fetchAllEmployeePreferencesAdmin());
     return () => {
-      dispatch(clearAllPreferenceErrors());
+      dispatch(clearPreferenceError()); // Corrected action dispatch
     }
   }, [dispatch]);
 
@@ -24,7 +25,7 @@ const AdminViewPreferencesScreen = () => {
     dispatch(fetchAllEmployeePreferencesAdmin());
   };
 
-  const convertToCSV = (data: EmployeePreferenceRecord[]) => {
+  const convertToCSV = (data: EmployeePreferenceRecord[] | undefined) => { // Allow data to be undefined
     if (!data || data.length === 0) return '';
     const header = 'EmployeeID,EmployeeName,PreferredDaysOff,PreferredShiftTimes,Unavailability,Notes,LastUpdated\n';
     const rows = data.map(pref => {
@@ -36,7 +37,7 @@ const AdminViewPreferencesScreen = () => {
         escapeCSV(empId),
         escapeCSV(empName),
         escapeCSV(pref.preferredDaysOff),
-        escapeCSV(pref.preferredShiftTimes),
+        escapeCSV(pref.preferredShift), // Corrected property name
         escapeCSV(pref.unavailability),
         escapeCSV(pref.notes),
         escapeCSV(new Date(pref.lastUpdatedAt).toLocaleString())
@@ -46,7 +47,7 @@ const AdminViewPreferencesScreen = () => {
   };
 
   const handleExport = async () => {
-    if (allEmployeePreferences.length === 0) {
+    if (!allEmployeePreferences || allEmployeePreferences.length === 0) { // Add check for undefined
       Alert.alert('No Data', 'There are no preferences to export.');
       return;
     }
@@ -99,15 +100,15 @@ const AdminViewPreferencesScreen = () => {
       <ThemedText style={styles.employeeName}>
         Employee: {typeof item.employee === 'object' ? (item.employee.name || item.employee.username) : item.employee}
       </ThemedText>
-      <ThemedText><ThemedText style={styles.bold}>Preferred Days Off:</ThemedText> {item.preferredDaysOff || 'N/A'}</ThemedText>
-      <ThemedText><ThemedText style={styles.bold}>Preferred Shifts:</ThemedText> {item.preferredShiftTimes || 'N/A'}</ThemedText>
-      <ThemedText><ThemedText style={styles.bold}>Unavailability:</ThemedText> {item.unavailability || 'N/A'}</ThemedText>
-      <ThemedText><ThemedText style={styles.bold}>Notes:</ThemedText> {item.notes || 'N/A'}</ThemedText>
+      <ThemedText><ThemedText style={styles.bold}>Preferred Days Off: </ThemedText>{item.preferredDaysOff || 'N/A'}</ThemedText>
+      <ThemedText><ThemedText style={styles.bold}>Preferred Shifts: </ThemedText>{item.preferredShift || 'N/A'}</ThemedText>
+      <ThemedText><ThemedText style={styles.bold}>Unavailability: </ThemedText>{item.unavailability || 'N/A'}</ThemedText>
+      <ThemedText><ThemedText style={styles.bold}>Notes: </ThemedText>{item.notes || 'N/A'}</ThemedText>
       <ThemedText style={styles.lastUpdated}>Last Updated: {new Date(item.lastUpdatedAt).toLocaleString()}</ThemedText>
     </ThemedView>
   );
 
-  if (isLoadingAllPreferences && allEmployeePreferences.length === 0) {
+  if (isLoadingAllPreferences && (!allEmployeePreferences || allEmployeePreferences.length === 0)) { // Add check for undefined
     return (
       <ThemedView style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color="#007bff" />
@@ -129,18 +130,19 @@ const AdminViewPreferencesScreen = () => {
     <ThemedView style={styles.container}>
       <View style={styles.headerContainer}>
         <ThemedText type="title" style={styles.header}>All Employee Preferences</ThemedText>
-        <Button title="Export as CSV" onPress={handleExport} disabled={isLoadingAllPreferences || allEmployeePreferences.length === 0} color="#007bff" />
+        <Button title="Export as CSV" onPress={handleExport} disabled={isLoadingAllPreferences || !allEmployeePreferences || allEmployeePreferences.length === 0} color="#007bff" />
       </View>
-      {allEmployeePreferences.length === 0 && !isLoadingAllPreferences ? (
+      {(!allEmployeePreferences || allEmployeePreferences.length === 0) && !isLoadingAllPreferences ? ( // Add check for undefined
         <ThemedView style={styles.centerContent}>
           <ThemedText>No employee preferences found.</ThemedText>
         </ThemedView>
       ) : (
         <FlatList
-          data={allEmployeePreferences.slice().sort((a: EmployeePreferenceRecord, b: EmployeePreferenceRecord) =>
-            (typeof a.employee === 'object' ? (a.employee.name || a.employee.username) : a.employee)
-            .localeCompare(typeof b.employee === 'object' ? (b.employee.name || b.employee.username) : b.employee)
-          )}
+          data={(allEmployeePreferences || []).slice().sort((a: EmployeePreferenceRecord, b: EmployeePreferenceRecord) => {
+            const nameA = typeof a.employee === 'object' ? (a.employee.name || a.employee.username || '') : (a.employee || '');
+            const nameB = typeof b.employee === 'object' ? (b.employee.name || b.employee.username || '') : (b.employee || '');
+            return nameA.localeCompare(nameB);
+          })}
           renderItem={renderPreferenceItem}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContentContainer}

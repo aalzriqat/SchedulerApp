@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Button, Alert, TextInput, ScrollView, Share, Platform, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Button, Alert, TextInput, ScrollView, Share, Platform, TouchableOpacity, Modal, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../../../src/store/store'; // Adjusted path
 import {
@@ -145,7 +145,7 @@ const AdminSchedulesScreen = () => {
   const renderEmployeeScheduleItem = ({ item }: { item: AdminScheduleView }) => (
     <ThemedView style={styles.employeeScheduleContainer}>
       <ThemedText style={styles.employeeName}>
-        {item.employee.name || item.employee.username} (ID: {item.employee._id})
+        {item.employee ? `${item.employee.name || item.employee.username} (ID: ${item.employee._id})` : 'Unknown Employee'}
       </ThemedText>
       {item.shifts && item.shifts.length > 0 ? (
         item.shifts.map(renderShiftItem)
@@ -196,10 +196,10 @@ const AdminSchedulesScreen = () => {
       ) : (
         <FlatList
           data={allEmployeeSchedules.slice().sort((a: AdminScheduleView, b: AdminScheduleView) =>
-            (a.employee.name || a.employee.username || '').localeCompare(b.employee.name || b.employee.username || '')
+            (a.employee?.name || a.employee?.username || '').localeCompare(b.employee?.name || b.employee?.username || '')
           )}
           renderItem={renderEmployeeScheduleItem}
-          keyExtractor={(item) => item.employee._id}
+          keyExtractor={(item) => item.employee?._id || Math.random().toString()}
           contentContainerStyle={styles.listContentContainer}
           refreshControl={ // RefreshControl needs to be imported from react-native
             <RNRefreshControl refreshing={isLoadingAllAdmin} onRefresh={onRefresh} colors={["#007bff"]} />
@@ -213,9 +213,12 @@ const AdminSchedulesScreen = () => {
         visible={uploadModalVisible}
         onRequestClose={() => setUploadModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <ThemedView style={styles.modalView}>
-            <ThemedText style={styles.modalTitle}>Upload Schedule Data</ThemedText>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.modalOverlay}>
+            {/* Wrap inner content to prevent touch from propagating if needed, or ensure modalView itself doesn't handle touch */}
+            <TouchableWithoutFeedback accessible={false}>
+              <ThemedView style={styles.modalView}>
+                <ThemedText style={styles.modalTitle}>Upload Schedule Data</ThemedText>
             <ThemedText style={styles.modalInfo}>
               Paste schedule data below (e.g., CSV or JSON format as expected by the backend).
               This is a simplified upload for Expo Go.
@@ -233,9 +236,11 @@ const AdminSchedulesScreen = () => {
               <Button title="Cancel" onPress={() => setUploadModalVisible(false)} color="#aaa" />
               <Button title="Upload Data" onPress={handleUploadSchedule} disabled={isUploadingAdmin} color="#007bff" />
             </View>
-            {isUploadingAdmin && <ActivityIndicator size="large" color="#007bff" style={{marginTop: 15}} />}
-          </ThemedView>
-        </View>
+                {isUploadingAdmin && <ActivityIndicator size="large" color="#007bff" style={{marginTop: 15}} />}
+              </ThemedView>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
       </Modal>
 
     </ThemedView>

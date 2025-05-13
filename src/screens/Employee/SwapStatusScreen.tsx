@@ -8,16 +8,234 @@ import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { FontAwesome } from '@expo/vector-icons';
+import { useMemo } from 'react'; // Import useMemo
+
+// Define styles inside the component or use a hook/function that has access to themed variables
+const getStyles = (
+  themedBackgroundColor: string,
+  themedTextColor: string,
+  themedBorderColor: string,
+  themedCardBackgroundColor: string,
+  themedSubtleTextColor: string,
+  themedErrorTextColor: string,
+  themedPrimaryButtonBg: string,
+  themedPrimaryButtonText: string,
+  themedErrorContainerBg: string, // Pass this in
+  themedStatusApprovedBg: string,
+  themedStatusApprovedText: string,
+  themedStatusRejectedBg: string,
+  themedStatusRejectedText: string,
+  themedStatusPendingBg: string,
+  themedStatusPendingText: string,
+  themedStatusCancelledBg: string,
+  themedStatusCancelledText: string,
+  themedDefaultStatusBg: string,
+  themedDefaultStatusText: string
+) => StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingHorizontal: 16,
+    backgroundColor: themedBackgroundColor, // Apply themed background
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    flex: 1,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+    color: themedTextColor, // Apply themed text color
+  },
+  swapItem: {
+    padding: 15,
+    marginBottom: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    backgroundColor: themedCardBackgroundColor, // Apply themed card background
+    borderColor: themedBorderColor, // Apply themed border color
+  },
+  swapItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  swapHeader: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: themedTextColor,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    // color is set dynamically by getStatusStyle
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    // backgroundColor is set dynamically by getStatusStyle
+  },
+  statusIcon: {
+    marginRight: 5,
+  },
+  shiftDetailContainer: {
+    marginTop: 10,
+    paddingLeft: 12,
+    borderLeftWidth: 3,
+    marginBottom: 10,
+    borderLeftColor: themedPrimaryButtonBg, // Apply themed color
+  },
+  shiftTitle: {
+    fontWeight: '600',
+    fontSize: 15,
+    marginBottom: 5,
+    color: themedTextColor,
+  },
+  shiftInfoRow: {
+    flexDirection: 'row',
+    marginBottom: 3,
+  },
+  shiftInfoLabel: {
+    fontWeight: 'bold',
+    marginRight: 5,
+    fontSize: 14,
+    minWidth: 70,
+    color: themedTextColor,
+  },
+  shiftInfoValue: {
+    fontSize: 14,
+    flexShrink: 1,
+    color: themedTextColor,
+  },
+  shiftInfoText: {
+     fontSize: 14,
+     marginBottom: 8,
+     color: themedSubtleTextColor, // Apply themed subtle text color
+     fontStyle: 'italic',
+  },
+  notes: {
+    marginTop: 8,
+    color: themedTextColor,
+  },
+  noRequestsText: {
+    textAlign: 'center',
+    marginTop: 10,
+    marginBottom: 15,
+    color: themedSubtleTextColor,
+  },
+  emptyListContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    flexGrow: 1,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: themedErrorContainerBg, // THIS IS THE KEY CHANGE
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 10,
+    marginTop: 5,
+    marginHorizontal: 0,
+  },
+  errorText: {
+    flex: 1,
+    color: themedErrorTextColor, // Apply themed error text color
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    marginTop: 10,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+    // backgroundColor is set dynamically
+  },
+  actionButtonText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: 'bold',
+    // color is set dynamically
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 15,
+    marginTop: 5,
+  },
+  filterButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    // backgroundColor and borderColor are set dynamically
+  },
+  filterButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+    // color is set dynamically
+  },
+  listContentContainer: {
+    paddingBottom: 20,
+  },
+  bold: {
+    fontWeight: 'bold',
+    color: themedTextColor, // Assuming bold text should also be themed
+  },
+  segmentedControlContainer: {
+    flexDirection: 'row',
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: themedPrimaryButtonBg,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  segmentButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentButtonLeft: {},
+  segmentButtonRight: {},
+  segmentActive: {
+    backgroundColor: themedPrimaryButtonBg,
+  },
+  segmentInactive: {
+    backgroundColor: themedCardBackgroundColor, // Use a themed inactive background
+  },
+  segmentText: {
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  segmentTextActive: {
+    color: themedPrimaryButtonText,
+  },
+  segmentTextInactive: {
+    color: themedPrimaryButtonBg, // Or themedTextColor for better contrast on themedCardBackground
+  },
+});
 
 const SwapStatusScreen = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { 
-    mySentRequests, 
-    myReceivedRequests, 
-    isLoadingMySwaps, 
+  const {
+    mySentRequests,
+    myReceivedRequests,
+    isLoadingMySwaps,
     mySwapsError,
     isRespondingToSwap,
-    isCancellingSwap, 
+    isCancellingSwap,
   } = useSelector((state: RootState) => state.swaps);
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const [activeSwapId, setActiveSwapId] = useState<string | null>(null);
@@ -25,7 +243,7 @@ const SwapStatusScreen = () => {
   const filterOptions: SwapStatusFilter[] = ['All', 'Pending', 'Accepted', 'Declined', 'Cancelled'];
   type ActiveView = 'sent' | 'received';
   const [currentView, setCurrentView] = useState<ActiveView>('sent');
-  const [activeFilter, setActiveFilter] = useState<SwapStatusFilter>('All'); // Single filter state
+  const [activeFilter, setActiveFilter] = useState<SwapStatusFilter>('All');
  
   const themedBackgroundColor = useThemeColor({}, 'background');
   const themedTextColor = useThemeColor({}, 'text');
@@ -34,20 +252,48 @@ const SwapStatusScreen = () => {
   const themedSubtleTextColor = useThemeColor({}, 'subtleText');
   const themedErrorTextColor = useThemeColor({}, 'errorText');
   const themedPrimaryButtonBg = useThemeColor({}, 'buttonPrimaryBackground');
-  const themedPrimaryButtonText = useThemeColor({}, 'buttonPrimaryText'); // Moved from renderFilterButtons
-  const themedErrorContainerBg = useThemeColor({ light: '#FFCDD2', dark: '#C62828' }, 'statusRejectedBackground'); // Moved from styles
+  const themedPrimaryButtonText = useThemeColor({}, 'buttonPrimaryText');
+  const themedErrorContainerBg = useThemeColor({ light: '#FFCDD2', dark: '#C62828' }, 'statusRejectedBackground');
 
-  // Status colors
   const themedStatusApprovedBg = useThemeColor({}, 'statusApprovedBackground');
   const themedStatusApprovedText = useThemeColor({}, 'statusApprovedText');
   const themedStatusRejectedBg = useThemeColor({}, 'statusRejectedBackground');
   const themedStatusRejectedText = useThemeColor({}, 'statusRejectedText');
-  const themedStatusPendingBg = useThemeColor({}, 'statusPendingBackground'); // Assuming this will be added to Colors.ts
-  const themedStatusPendingText = useThemeColor({}, 'statusPendingText');   // Assuming this will be added to Colors.ts
-  const themedStatusCancelledBg = useThemeColor({}, 'statusCancelledBackground'); // Assuming this will be added to Colors.ts
-  const themedStatusCancelledText = useThemeColor({}, 'statusCancelledText'); // Assuming this will be added to Colors.ts
-  const themedDefaultStatusBg = useThemeColor({}, 'cardBackground'); // Fallback
-  const themedDefaultStatusText = useThemeColor({}, 'text'); // Fallback
+  const themedStatusPendingBg = useThemeColor({}, 'statusPendingBackground');
+  const themedStatusPendingText = useThemeColor({}, 'statusPendingText');
+  const themedStatusCancelledBg = useThemeColor({}, 'statusCancelledBackground');
+  const themedStatusCancelledText = useThemeColor({}, 'statusCancelledText');
+  const themedDefaultStatusBg = useThemeColor({}, 'cardBackground');
+  const themedDefaultStatusText = useThemeColor({}, 'text');
+
+  // Memoize styles to prevent recreation on every render unless theme variables change
+  const styles = useMemo(() => getStyles(
+    themedBackgroundColor,
+    themedTextColor,
+    themedBorderColor,
+    themedCardBackgroundColor,
+    themedSubtleTextColor,
+    themedErrorTextColor,
+    themedPrimaryButtonBg,
+    themedPrimaryButtonText,
+    themedErrorContainerBg,
+    themedStatusApprovedBg,
+    themedStatusApprovedText,
+    themedStatusRejectedBg,
+    themedStatusRejectedText,
+    themedStatusPendingBg,
+    themedStatusPendingText,
+    themedStatusCancelledBg,
+    themedStatusCancelledText,
+    themedDefaultStatusBg,
+    themedDefaultStatusText
+  ), [
+    themedBackgroundColor, themedTextColor, themedBorderColor, themedCardBackgroundColor,
+    themedSubtleTextColor, themedErrorTextColor, themedPrimaryButtonBg, themedPrimaryButtonText,
+    themedErrorContainerBg, themedStatusApprovedBg, themedStatusApprovedText, themedStatusRejectedBg,
+    themedStatusRejectedText, themedStatusPendingBg, themedStatusPendingText, themedStatusCancelledBg,
+    themedStatusCancelledText, themedDefaultStatusBg, themedDefaultStatusText
+  ]);
 
   useEffect(() => {
     if (currentUser && currentUser.id) {
@@ -381,191 +627,5 @@ const SwapStatusScreen = () => {
     </ThemedView>
   );
 };
- 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1, // Make container take full height
-    // Remove padding here, apply to list container if needed or keep horizontal
-    paddingHorizontal: 16,
-  },
-  centered: { 
-    justifyContent: 'center',
-    alignItems: 'center',
-    flex: 1, // Ensure centered content takes full available space if container is flex:1
-  },
-  title: { 
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  // Removed sectionTitle style as it's no longer used
-  swapItem: {
-    padding: 15,
-    marginBottom: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  swapItemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-  swapHeader: { 
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  statusText: {
-    fontSize: 12, // Adjusted for badge
-    fontWeight: 'bold',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12, // More rounded for a badge
-  },
-  statusIcon: {
-    marginRight: 5,
-  },
-  shiftDetailContainer: { // Renamed from shiftDetail
-    marginTop: 10, // Increased top margin
-    paddingLeft: 12, // Increased padding
-    borderLeftWidth: 3,
-    marginBottom: 10, // Increased bottom margin
-  },
-  shiftTitle: {
-    fontWeight: '600',
-    fontSize: 15, // Slightly larger title
-    marginBottom: 5, // Add space below title
-  },
-  shiftInfoRow: {
-    flexDirection: 'row',
-    marginBottom: 3, // Space between rows
-  },
-  shiftInfoLabel: {
-    fontWeight: 'bold',
-    marginRight: 5,
-    fontSize: 14,
-    minWidth: 70, // Align values
-  },
-  shiftInfoValue: {
-    fontSize: 14,
-    flexShrink: 1, // Allow text to wrap if needed
-  },
-  shiftInfoText: { // Style for the fallback texts
-     fontSize: 14,
-     marginBottom: 8,
-  },
-  notes: {
-    marginTop: 8, // Increased spacing before notes
-  },
-  noRequestsText: { 
-    textAlign: 'center',
-    marginTop: 10,
-    marginBottom: 15,
-  },
-  emptyListContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40, // Increased padding
-    flexGrow: 1, // Allow it to take space if list is short
-  },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: themedErrorContainerBg, // Use variable
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10, // Reduced space below error
-    marginTop: 5, // Added space above error
-    marginHorizontal: 0, // Remove horizontal margin if container has padding
-  },
-  errorText: {
-    flex: 1, // Allow text to wrap
-    // textAlign: 'center', // Removed center alignment
-    // marginTop: 10, // Removed top margin as it's handled by container
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    marginTop: 10,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10, // Increased vertical padding
-    paddingHorizontal: 15, // Increased horizontal padding
-    borderRadius: 6, // Slightly larger radius
-  },
-  actionButtonText: {
-    fontWeight: 'bold',
-    marginLeft: 5,
-  },
-  bold: { fontWeight: 'bold' },
-  segmentedControlContainer: {
-    flexDirection: 'row',
-    marginBottom: 15,
-    marginTop: 5, // Add some top margin
-  },
-  segmentButton: {
-    flex: 1, // Each button takes half the width
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: useThemeColor({}, 'buttonPrimaryBackground'), // Use primary color for border
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  segmentButtonLeft: {
-    borderTopLeftRadius: 8,
-    borderBottomLeftRadius: 8,
-    marginRight: -1, // Overlap borders slightly
-  },
-  segmentButtonRight: {
-    borderTopRightRadius: 8,
-    borderBottomRightRadius: 8,
-  },
-  segmentActive: {
-    // Active background color is set inline using themedPrimaryButtonBg
-  },
-  segmentInactive: {
-    backgroundColor: useThemeColor({}, 'cardBackground'), // Use card background for inactive
-  },
-  segmentText: {
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  segmentTextActive: {
-    color: useThemeColor({}, 'buttonPrimaryText'), // White text on active
-  },
-  segmentTextInactive: {
-    color: useThemeColor({}, 'buttonPrimaryBackground'), // Primary color text on inactive
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around', // Keep space-around or use flex-wrap
-    flexWrap: 'wrap', // Allow filters to wrap on smaller screens
-    marginBottom: 10, // Reduced margin
-    // Removed marginTop as segmented control provides top spacing
-  },
-  filterButton: {
-    paddingVertical: 6, // Slightly smaller padding
-    paddingHorizontal: 10,
-    borderRadius: 15,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: 3, // Add small margin for wrapped items
-  },
-  filterButtonText: {
-    fontSize: 12, // Slightly smaller text
-    fontWeight: '600',
-  },
-  listContentContainer: {
-     paddingBottom: 20, // Ensure last item isn't hidden
-  }
-});
- 
+
 export default SwapStatusScreen;

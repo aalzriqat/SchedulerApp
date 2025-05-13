@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl, Button, Alert, Modal, TextInput, TouchableOpacity, Share, Platform } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl, Button, Alert, Modal, TextInput, TouchableOpacity, Share, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store/store';
 import { fetchAllSwapRequestsForAdmin, updateSwapStatusByAdmin, APISwapRequest, clearAllSwapErrors } from '../../store/slices/swapSlice';
@@ -252,9 +252,11 @@ const AdminSwapManagementScreen = () => {
           visible={modalVisible}
           onRequestClose={() => { setModalVisible(false); setSelectedRequest(null); }}
         >
-          <View style={styles.modalOverlay}>
-            <ThemedView style={[styles.modalView, {backgroundColor: themedCardBackgroundColor}]}>
-              <ThemedText style={styles.modalTitle}>Manage Swap Request</ThemedText>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback accessible={false}>
+                <ThemedView style={[styles.modalView, {backgroundColor: themedCardBackgroundColor}]}>
+                  <ThemedText style={styles.modalTitle}>Manage Swap Request</ThemedText>
               <ThemedText>Requester: {getEmployeeName(selectedRequest.requester)}</ThemedText>
               {selectedRequest.recipient && <ThemedText>Intended Recipient: {getEmployeeName(selectedRequest.recipient)}</ThemedText>}
               {renderShiftInfo(selectedRequest.requesterSchedule, 'Requester\'s Offered', 'Offered by Requester (Shift)')}
@@ -288,10 +290,12 @@ const AdminSwapManagementScreen = () => {
                     <Text style={[styles.modalButtonText, {color: statusColors.rejected.text}]}> Reject</Text>
                 </TouchableOpacity>
               </View>
-              {isUpdatingSwapAdmin && <ActivityIndicator style={{marginTop:10}} size="small" color={themedPrimaryButtonBg} />}
-              <Button title="Cancel" onPress={() => { setModalVisible(false); setSelectedRequest(null); }} color={themedSubtleTextColor} />
-            </ThemedView>
-          </View>
+                  {isUpdatingSwapAdmin && <ActivityIndicator style={{marginTop:10}} size="small" color={themedPrimaryButtonBg} />}
+                  <Button title="Cancel" onPress={() => { setModalVisible(false); setSelectedRequest(null); }} color={themedSubtleTextColor} />
+                </ThemedView>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
         </Modal>
       )}
     </ThemedView>
