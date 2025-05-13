@@ -1,7 +1,8 @@
 import axios, { InternalAxiosRequestConfig, AxiosError } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE_URL = 'http://172.20.10.2:4000'; // Updated IP Address
+import { Notification } from '../store/slices/notificationSlice'; // Import Notification type
+const API_BASE_URL = 'http://192.168.1.17:4000'; // Updated IP Address
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -28,7 +29,7 @@ apiClient.interceptors.response.use(
   (response) => {
     console.log(
       `[API Response] Status: ${response.status} | ${response.config.method?.toUpperCase()} ${response.config.url}`,
-      "| Response Data:", response.data
+      "| Response Data:", 
     );
     return response;
   },
@@ -607,17 +608,23 @@ export interface APISwapRequest {
 }
 
 // Fetch swap requests for a specific employee (sent and received)
-export const getMySwapRequests = async (userId: string): Promise<{ sent: APISwapRequest[], received: APISwapRequest[] }> => {
+export const getMySwapRequests = async (
+  userId: string
+): Promise<{ sent: APISwapRequest[]; received: APISwapRequest[] }> => {
   try {
     console.log(`[API Call] getMySwapRequests for userId: ${userId}`);
-    // Backend has separate routes for sent and received, and expects userId in path
+    
     const [sentResponse, receivedResponse] = await Promise.all([
       apiClient.get<APISwapRequest[]>(`/swap/sent/${userId}`),
-      apiClient.get<APISwapRequest[]>(`/swap/received/${userId}`)
+      apiClient.get<APISwapRequest[]>(`/swap/received/${userId}`),
     ]);
+
+    console.log(`Sent swap requests for userId ${userId}:`, sentResponse.data);
+    // console.log(`Received swap requests for userId ${userId}:`, receivedResponse.data);
+
     return {
       sent: sentResponse.data,
-      received: receivedResponse.data
+      received: receivedResponse.data,
     };
   } catch (error: unknown) {
     console.error(`Error fetching swap requests for userId ${userId}:`, error);
@@ -625,6 +632,7 @@ export const getMySwapRequests = async (userId: string): Promise<{ sent: APISwap
     throw new Error('Failed to fetch my swap requests.');
   }
 };
+
 
 // Create a new swap request
 export const createSwapRequest = async (payload: CreateSwapRequestPayload): Promise<APISwapRequest> => {
@@ -678,6 +686,28 @@ export const cancelMySwapRequestEmployee = async (swapId: string): Promise<APISw
     throw new Error('Failed to cancel swap request.');
   }
 };
+// --- Notification API Functions ---
+
+// Fetch notifications for a specific user
+export const getNotificationsApi = async (userId: string): Promise<Notification[]> => {
+  try {
+    // Assuming backend endpoint is GET /notifications/user/:userId
+    console.log(`[API Call] getNotificationsApi for userId: ${userId}`);
+    const response = await apiClient.get<Notification[]>(`/notifications/user/${userId}`);
+    // TODO: Ensure backend response matches the Notification interface structure
+    return response.data;
+  } catch (error: unknown) {
+    console.error('Error fetching notifications:', error);
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      throw new Error(axiosError.response?.data?.message || axiosError.message || 'Failed to fetch notifications.');
+    }
+    throw new Error('Failed to fetch notifications due to an unknown error.');
+  }
+};
+
+// Optional: API function to mark a notification as read (e.g., PATCH /notifications/:notificationId/read)
+// export const markNotificationReadApi = async (notificationId: string): Promise<void> => { ... }
 
 
 // Fetch all swap requests (for Admin)

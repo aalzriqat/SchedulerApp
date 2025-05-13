@@ -158,7 +158,6 @@ const EmployeeDashboardScreen = () => {
       contentContainerStyle={styles.scrollContentContainer}
       refreshControl={<RNRefreshControl refreshing={isLoadingSchedule || isLoadingMySwaps || isLoadingEmployeeData} onRefresh={onRefresh} colors={[themedPrimaryButtonBg]}/>}
     >
-      <ThemedText type="title" style={styles.mainTitle}>My Dashboard</ThemedText>
       <ThemedText style={styles.welcomeMessage}>Welcome, {user?.name || 'Employee'}!</ThemedText>
 
       {/* Error display for multiple sources - can be refined */}
@@ -206,7 +205,7 @@ const EmployeeDashboardScreen = () => {
           <ThemedText>Pending Received: {swapSummaryData.pendingReceived}</ThemedText>
           <TouchableOpacity
             style={styles.cardButton}
-            onPress={() => router.push('/(app)/(tabs)/(employee)/swapStatus')}
+            onPress={() => router.push('/hub/swaps/swapStatus')} // Corrected path
           >
             <ThemedText style={styles.cardButtonText}>View All Swaps</ThemedText>
           </TouchableOpacity>
@@ -214,16 +213,16 @@ const EmployeeDashboardScreen = () => {
       )}
       
       {/* Existing Performance Section (can be a card too) */}
-      {employeePersonalData && (
+      {/* {employeePersonalData && (
         <ThemedView style={styles.section}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>My Performance (Mock Data)</ThemedText>
           {renderMetricCard('Shifts Completed', employeePersonalData.shiftsCompleted)}
           {renderMetricCard('Punctuality', employeePersonalData.punctualityPercentage, '%')}
           {renderMetricCard('Hours This Period', employeePersonalData.hoursWorkedThisPeriod, 'hrs')}
         </ThemedView>
-      )}
+      )} */}
       
-      {renderInfoCard("Quick Actions",
+      {/* {renderInfoCard("Quick Actions",
         <View>
           <TouchableOpacity
             style={[styles.cardButton, {backgroundColor: themedPrimaryButtonBg}]}
@@ -238,7 +237,7 @@ const EmployeeDashboardScreen = () => {
             <ThemedText style={[styles.cardButtonText, {color: themedPrimaryButtonText}]}>Submit Leave</ThemedText>
           </TouchableOpacity>
         </View>
-      )}
+      )} */}
 
     </ScrollView>
   );

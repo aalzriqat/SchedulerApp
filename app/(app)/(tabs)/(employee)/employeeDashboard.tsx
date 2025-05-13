@@ -21,9 +21,9 @@ export default function EmployeeDashboardPage() {
   return (
     <View style={{flex: 1}}>
       <EmployeeDashboardScreen />
-      <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+      {/* <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
         <Text style={styles.logoutButtonText}>Logout (Employee)</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </View>
   );
 }

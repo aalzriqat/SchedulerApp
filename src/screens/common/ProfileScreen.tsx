@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, ScrollView, ActivityIndicator, Switch, TouchableOpacity } from 'react-native'; // Added TouchableOpacity
+import { View, TextInput, Button, StyleSheet, Alert, ScrollView, ActivityIndicator, Switch, TouchableOpacity } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store/store';
-import { User } from '../../store/slices/authSlice';
 import { updateUserProfile, updateUserOpenForSwap, clearProfileStatus } from '../../store/slices/profileSlice';
+import { logoutAction, User } from '../../store/slices/authSlice'; // Correctly import logoutAction
+import { clearNotifications } from '../../store/slices/notificationSlice'; // Import clearNotifications
+import * as SecureStore from 'expo-secure-store';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
-import { useRouter } from 'expo-router'; // Import useRouter
+import { useRouter } from 'expo-router';
 
 const ProfileScreen = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const router = useRouter(); // Initialize router
-  const currentUser = useSelector((state: RootState) => state.auth.user); // Removed 'as User | null' as type is inferred
+  const router = useRouter();
+  const currentUser = useSelector((state: RootState) => state.auth.user);
   const { loading, error, successMessage } = useSelector((state: RootState) => state.profile);
-  // Select isOpenForSwap directly if it's part of the User object in auth.user
-  const initialIsOpenForSwap = useSelector((state: RootState) => state.auth.user?.isOpenForSwap ?? false);
-
+  const initialIsOpenForSwap = currentUser?.isOpenForSwap ?? false;
 
   const [name, setName] = useState(currentUser?.name || '');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -26,8 +26,6 @@ const ProfileScreen = () => {
   useEffect(() => {
     if (currentUser) {
       setName(currentUser.name);
-      // It's important to fetch the latest isOpenForSwap status if it's not reliably in auth.user
-      // For now, assuming initialIsOpenForSwap from selector is sufficient for initial render
       setIsOpenForSwap(initialIsOpenForSwap);
     }
   }, [currentUser, initialIsOpenForSwap]);
@@ -36,7 +34,6 @@ const ProfileScreen = () => {
     if (successMessage) {
       Alert.alert('Success', successMessage);
       dispatch(clearProfileStatus());
-      // Clear password fields after successful update
       setCurrentPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
@@ -44,16 +41,11 @@ const ProfileScreen = () => {
     if (error) {
       Alert.alert('Error', error);
       dispatch(clearProfileStatus());
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
     }
   }, [successMessage, error, dispatch]);
-
-  const handleUpdateName = () => {
-    if (!name.trim()) {
-      Alert.alert('Validation Error', 'Name cannot be empty.');
-      return;
-    }
-    dispatch(updateUserProfile({ name }));
-  };
 
   const handleUpdatePassword = () => {
     if (!currentPassword || !newPassword || !confirmNewPassword) {
@@ -76,6 +68,17 @@ const ProfileScreen = () => {
     dispatch(updateUserOpenForSwap(value));
   };
 
+  const handleLogout = async () => {
+    try {
+      await SecureStore.deleteItemAsync('userToken');
+      await SecureStore.deleteItemAsync('userData');
+      dispatch(logoutAction());
+      dispatch(clearNotifications()); // Clear notifications on logout
+    } catch (e) {
+      console.error('Error during logout:', e);
+    }
+  };
+
   if (!currentUser) {
     return (
       <ThemedView style={[styles.container, styles.centerContent]}>
@@ -90,24 +93,14 @@ const ProfileScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <ThemedText type="title" style={styles.header}>My Profile</ThemedText>
 
+        {/* Account Info */}
         <View style={styles.section}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>Account Information</ThemedText>
           <ThemedText style={styles.infoText}><ThemedText style={styles.infoLabel}>Email:</ThemedText> {currentUser.email}</ThemedText>
           <ThemedText style={styles.infoText}><ThemedText style={styles.infoLabel}>Role:</ThemedText> {currentUser.role}</ThemedText>
         </View>
 
-        <View style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>Update Name</ThemedText>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Enter your name"
-            placeholderTextColor="#999"
-          />
-          <Button title="Update Name" onPress={handleUpdateName} disabled={loading} color="#007bff" />
-        </View>
-
+        {/* Swap Availability */}
         {currentUser.role === 'Employee' && (
           <View style={styles.section}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>Swap Availability</ThemedText>
@@ -125,18 +118,19 @@ const ProfileScreen = () => {
           </View>
         )}
 
-        {/* Preferences Navigation Section */}
-        {currentUser.role === 'Employee' && ( // Only show for employees if preferences are employee-specific
+        {/* Preferences Button */}
+        {currentUser.role === 'Employee' && (
           <View style={styles.section}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>My Preferences</ThemedText>
             <Button
               title="Go to Preferences"
-              onPress={() => router.push('/(app)/(tabs)/(employee)/hub/preferences/viewPreferences')} // More explicit path
+              onPress={() => router.push('/(app)/(tabs)/(employee)/hub/preferences/viewPreferences')}
               color="#007bff"
             />
           </View>
         )}
 
+        {/* Password Change */}
         <View style={styles.section}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>Change Password</ThemedText>
           <TextInput
@@ -163,8 +157,13 @@ const ProfileScreen = () => {
             placeholderTextColor="#999"
             secureTextEntry
           />
-          <Button title="Change Password" onPress={handleUpdatePassword} disabled={loading} color="#007bff" />
+          <Button title={loading ? "Updating..." : "Change Password"} onPress={handleUpdatePassword} disabled={loading} color="#007bff" />
         </View>
+
+        {/* Logout */}
+        <TouchableOpacity onPress={handleLogout} style={[styles.section, { backgroundColor: '#ff4d4d', padding: 15, borderRadius: 8 }]}>
+          <ThemedText style={{ color: '#fff', textAlign: 'center' }}>Logout</ThemedText>
+        </TouchableOpacity>
 
         {loading && <ActivityIndicator size="large" color="#007bff" style={styles.loader} />}
       </ScrollView>
@@ -194,9 +193,8 @@ const styles = StyleSheet.create({
     marginBottom: 25,
     padding: 15,
     borderWidth: 1,
-    borderColor: '#ddd', // Consider theme
+    borderColor: '#ddd',
     borderRadius: 8,
-    // backgroundColor: '#f9f9f9', // Consider theme
   },
   sectionTitle: {
     fontSize: 18,
@@ -218,8 +216,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 15,
     fontSize: 16,
-    backgroundColor: '#fff', // Consider theme
-    color: '#000', // Consider theme
+    backgroundColor: '#fff',
+    color: '#000',
   },
   switchContainer: {
     flexDirection: 'row',

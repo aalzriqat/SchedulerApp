@@ -65,11 +65,14 @@ export default function NavigationController() {
 
     if (!isAuthenticated) {
       const loginPath = '/login';
-      if (currentPath !== loginPath && !currentPath.startsWith('/(auth)')) { 
-        console.log('NavigationController: Not authenticated, navigating to /login');
+      const registerPath = '/register'; // Pathname seems to report this without the layout segment
+
+      // Check if the current path is NOT one of the allowed public paths
+      if (currentPath !== loginPath && currentPath !== registerPath) {
+        console.log(`NavigationController: Not authenticated and not on a public auth path (${currentPath}). Navigating to ${loginPath}`);
         router.replace(loginPath);
       } else {
-         console.log(`NavigationController: Not authenticated, but already on auth path or login: ${currentPath}. No navigation.`);
+         console.log(`NavigationController: Not authenticated, but on an allowed public path (${currentPath}). No automatic navigation.`);
       }
       setInitialNavigationComplete(false); // Reset on logout/session expiry
     } else { // User is authenticated

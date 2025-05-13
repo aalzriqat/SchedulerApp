@@ -6,7 +6,7 @@ export default function AuthLayout() {
   console.log('AuthLayout: Rendering');
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="login" />
+      {/* login route is defined at the top level (app/login.tsx), not within this group */}
       <Stack.Screen name="register" />
     </Stack>
   );

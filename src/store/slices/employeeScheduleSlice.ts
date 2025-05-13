@@ -55,7 +55,7 @@ export const fetchUserSchedule = createAsyncThunk<
   console.log(`fetchUserSchedule: Thunk started for employeeId: ${employeeId}`);
   try {
     const backendShifts = await getEmployeeSchedule(employeeId);
-    console.log('fetchUserSchedule: API response received:', JSON.stringify(backendShifts, null, 2));
+    // console.log('fetchUserSchedule: API response received:', JSON.stringify(backendShifts, null, 2));
     if (!Array.isArray(backendShifts)) {
       console.error('fetchUserSchedule: API response is not an array:', backendShifts);
       return thunkAPI.rejectWithValue('Invalid data format from server.');
@@ -63,7 +63,7 @@ export const fetchUserSchedule = createAsyncThunk<
     const shifts: Shift[] = backendShifts.map(shift => ({
       ...shift,
     }));
-    console.log('fetchUserSchedule: Processed shifts:', JSON.stringify(shifts, null, 2));
+    // console.log('fetchUserSchedule: Processed shifts:', JSON.stringify(shifts, null, 2));
     return shifts;
   } catch (error: any) {
     console.error('fetchUserSchedule: Error in thunk:', error);

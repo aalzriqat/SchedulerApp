@@ -139,7 +139,6 @@ const EmployeeScheduleScreen = () => {
 
   return (
     <ThemedView style={[styles.container, {backgroundColor: themedBackgroundColor}]}>
-      <ThemedText type="title" style={styles.title}>My Schedule</ThemedText>
       {isLoading && shifts.length > 0 && <ActivityIndicator style={styles.inlineLoader} size="small" color={themedPrimaryButtonBg} />}
       <FlatList
         data={shifts}
