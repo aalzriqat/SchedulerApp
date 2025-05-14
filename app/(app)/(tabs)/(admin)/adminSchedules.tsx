@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Button, Alert, TextInput, ScrollView, Share, Platform, TouchableOpacity, Modal, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Button, Alert, TextInput, ScrollView, Share, Platform, TouchableOpacity, Modal, TouchableWithoutFeedback, Keyboard, RefreshControl as RNRefreshControl } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import { AppDispatch, RootState } from '../../../../src/store/store'; // Adjusted path
+import { AppDispatch, RootState } from '../../../../src/store/store';
 import {
   fetchAllSchedulesForAdmin,
   uploadScheduleByAdmin,
-  Shift, // Shift is from employeeScheduleSlice
+  Shift,
   clearEmployeeScheduleErrors,
   resetUploadStatusAdmin
-} from '../../../../src/store/slices/employeeScheduleSlice'; // Adjusted path
-import { PopulatedScheduleEntry } from '../../../../src/api/apiService'; // Changed from AdminScheduleView to PopulatedScheduleEntry
+} from '../../../../src/store/slices/employeeScheduleSlice';
+import { PopulatedScheduleEntry } from '../../../../src/api/apiService';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import * as Clipboard from 'expo-clipboard';
@@ -34,7 +34,7 @@ const AdminSchedulesScreen = () => {
     dispatch(fetchAllSchedulesForAdmin());
     return () => {
       dispatch(clearEmployeeScheduleErrors());
-    }
+    };
   }, [dispatch]);
 
   useEffect(() => {
@@ -60,8 +60,6 @@ const AdminSchedulesScreen = () => {
       Alert.alert('Input Error', 'Schedule data cannot be empty.');
       return;
     }
-    // Here, scheduleDataInput could be CSV text or JSON string
-    // The backend and apiService.uploadScheduleDataAdmin should be set up to handle this format
     dispatch(uploadScheduleByAdmin(scheduleDataInput));
   };
 
@@ -127,40 +125,31 @@ const AdminSchedulesScreen = () => {
     <View key={shift._id} style={styles.shiftItem}>
       <ThemedText>Week: {shift.week}</ThemedText>
       <ThemedText>Working Hours: {shift.workingHours}</ThemedText>
-      <ThemedText>Off Days: {shift.offDays.join(', ')}</ThemedText>
+      <ThemedText>Off Days: {Array.isArray(shift.offDays) ? shift.offDays.join(', ') : String(shift.offDays)}</ThemedText>
       <ThemedText>Is Open For Swap: {shift.isOpenForSwap ? 'Yes' : 'No'}</ThemedText>
       <ThemedText style={styles.smallText}>Created: {new Date(shift.createdAt).toLocaleDateString()}</ThemedText>
-      {/* Old fields commented out:
-      <ThemedText>Date: {new Date(shift.date).toLocaleDateString()}</ThemedText>
-      <ThemedText>Time: {shift.startTime} - {shift.endTime}</ThemedText>
-      {shift.role && <ThemedText>Role: {shift.role}</ThemedText>}
-      {shift.location && <ThemedText>Location: {shift.location}</ThemedText>}
-      {shift.notes && <ThemedText>Notes: {shift.notes}</ThemedText>}
-      */}
     </View>
   );
 
-  // renderEmployeeScheduleItem now processes a single PopulatedScheduleEntry
   const renderEmployeeScheduleItem = ({ item }: { item: PopulatedScheduleEntry }) => {
-    // console.log('AdminSchedulesScreen: Rendering item:', JSON.stringify(item, null, 2)); // Log each item
     return (
-    <ThemedView style={styles.employeeScheduleContainer}>
-      <ThemedText style={styles.employeeName}>
-        {item.user ? `${item.user.name || item.user.username || 'Unnamed User'} (ID: ${item.user._id})` : 'Unknown Employee'}
-      </ThemedText>
-      {/* Display shift details directly from 'item' as it's a single schedule entry */}
-      <View style={styles.shiftItem}>
-        <ThemedText>Week: {item.week}</ThemedText>
-        <ThemedText>Working Hours: {item.workingHours}</ThemedText>
-        <ThemedText>Off Days: {Array.isArray(item.offDays) ? item.offDays.join(', ') : item.offDays}</ThemedText>
-        <ThemedText>Is Open For Swap: {item.isOpenForSwap ? 'Yes' : 'No'}</ThemedText>
-        {item.skill && <ThemedText>Skill: {item.skill}</ThemedText>}
-        {item.marketPlace && <ThemedText>Market Place: {item.marketPlace}</ThemedText>}
-        <ThemedText style={styles.smallText}>Created: {new Date(item.createdAt).toLocaleDateString()}</ThemedText>
-        <ThemedText style={styles.smallText}>Schedule ID: {item._id}</ThemedText>
-      </View>
-    </ThemedView>
-  );
+      <ThemedView style={styles.employeeScheduleContainer}>
+        <ThemedText style={styles.employeeName}>
+          {item.user ? `${item.user.name || item.user.username || 'Unnamed User'} (ID: ${item.user._id})` : 'Unknown Employee'}
+        </ThemedText>
+        <View style={styles.shiftItem}>
+          <ThemedText>Week: {item.week}</ThemedText>
+          <ThemedText>Working Hours: {item.workingHours}</ThemedText>
+          <ThemedText>Off Days: {Array.isArray(item.offDays) ? item.offDays.join(', ') : String(item.offDays)}</ThemedText>
+          <ThemedText>Is Open For Swap: {item.isOpenForSwap ? 'Yes' : 'No'}</ThemedText>
+          {item.skill && <ThemedText>Skill: {item.skill}</ThemedText>}
+          {item.marketPlace && <ThemedText>Market Place: {item.marketPlace}</ThemedText>}
+          <ThemedText style={styles.smallText}>Created: {new Date(item.createdAt).toLocaleDateString()}</ThemedText>
+          <ThemedText style={styles.smallText}>Schedule ID: {item._id}</ThemedText>
+        </View>
+      </ThemedView>
+    );
+  };
 
   if (isLoadingAllAdmin && allEmployeeSchedules.length === 0) {
     return (
@@ -195,7 +184,6 @@ const AdminSchedulesScreen = () => {
           </TouchableOpacity>
         </View>
       </View>
-
       {allEmployeeSchedules.length === 0 && !isLoadingAllAdmin ? (
         <ThemedView style={styles.centerContent}>
           <ThemedText>No schedules found for any employee.</ThemedText>
@@ -208,7 +196,7 @@ const AdminSchedulesScreen = () => {
           renderItem={renderEmployeeScheduleItem}
           keyExtractor={(item) => item._id || Math.random().toString()}
           contentContainerStyle={styles.listContentContainer}
-          refreshControl={ // RefreshControl needs to be imported from react-native
+          refreshControl={
             <RNRefreshControl refreshing={isLoadingAllAdmin} onRefresh={onRefresh} colors={["#007bff"]} />
           }
         />
@@ -222,40 +210,35 @@ const AdminSchedulesScreen = () => {
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={styles.modalOverlay}>
-            {/* Wrap inner content to prevent touch from propagating if needed, or ensure modalView itself doesn't handle touch */}
             <TouchableWithoutFeedback accessible={false}>
               <ThemedView style={styles.modalView}>
                 <ThemedText style={styles.modalTitle}>Upload Schedule Data</ThemedText>
-            <ThemedText style={styles.modalInfo}>
-              Paste schedule data below (e.g., CSV or JSON format as expected by the backend).
-              This is a simplified upload for Expo Go.
-            </ThemedText>
-            <TextInput
-              style={styles.uploadInput}
-              value={scheduleDataInput}
-              onChangeText={setScheduleDataInput}
-              placeholder="Paste schedule data here..."
-              multiline
-              numberOfLines={10}
-              placeholderTextColor="#999"
-            />
-            <View style={styles.modalActions}>
-              <Button title="Cancel" onPress={() => setUploadModalVisible(false)} color="#aaa" />
-              <Button title="Upload Data" onPress={handleUploadSchedule} disabled={isUploadingAdmin} color="#007bff" />
-            </View>
+                <ThemedText style={styles.modalInfo}>
+                  Paste schedule data below (e.g., CSV or JSON format as expected by the backend).
+                  This is a simplified upload for Expo Go.
+                </ThemedText>
+                <TextInput
+                  style={styles.uploadInput}
+                  value={scheduleDataInput}
+                  onChangeText={setScheduleDataInput}
+                  placeholder="Paste schedule data here..."
+                  multiline
+                  numberOfLines={10}
+                  placeholderTextColor="#999"
+                />
+                <View style={styles.modalActions}>
+                  <Button title="Cancel" onPress={() => setUploadModalVisible(false)} color="#aaa" />
+                  <Button title="Upload Data" onPress={handleUploadSchedule} disabled={isUploadingAdmin} color="#007bff" />
+                </View>
                 {isUploadingAdmin && <ActivityIndicator size="large" color="#007bff" style={{marginTop: 15}} />}
               </ThemedView>
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
       </Modal>
-
     </ThemedView>
   );
-};
-
-// Import RefreshControl as RNRefreshControl to avoid naming conflict if any
-import { RefreshControl as RNRefreshControl } from 'react-native';
+}; // This is the closing brace and semicolon for AdminSchedulesScreen
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
