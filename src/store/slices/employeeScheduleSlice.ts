@@ -96,6 +96,7 @@ export const fetchAllSchedulesForAdmin = createAsyncThunk<
 >('employeeSchedule/fetchAllSchedulesForAdmin', async (_, thunkAPI) => {
   try {
     const data = await getAllSchedulesAdmin();
+    console.log('Fetched All Schedules for Admin (raw from API):', JSON.stringify(data, null, 2)); // Log raw data
     return data;
   } catch (error: any) {
     return thunkAPI.rejectWithValue(error.message || 'Failed to fetch all schedules for admin');

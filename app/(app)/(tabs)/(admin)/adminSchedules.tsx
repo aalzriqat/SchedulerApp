@@ -30,6 +30,7 @@ const AdminSchedulesScreen = () => {
   const [scheduleDataInput, setScheduleDataInput] = useState('');
 
   useEffect(() => {
+    console.log('AdminSchedulesScreen: allEmployeeSchedules from Redux:', JSON.stringify(allEmployeeSchedules, null, 2));
     dispatch(fetchAllSchedulesForAdmin());
     return () => {
       dispatch(clearEmployeeScheduleErrors());
@@ -140,7 +141,9 @@ const AdminSchedulesScreen = () => {
   );
 
   // renderEmployeeScheduleItem now processes a single PopulatedScheduleEntry
-  const renderEmployeeScheduleItem = ({ item }: { item: PopulatedScheduleEntry }) => (
+  const renderEmployeeScheduleItem = ({ item }: { item: PopulatedScheduleEntry }) => {
+    // console.log('AdminSchedulesScreen: Rendering item:', JSON.stringify(item, null, 2)); // Log each item
+    return (
     <ThemedView style={styles.employeeScheduleContainer}>
       <ThemedText style={styles.employeeName}>
         {item.user ? `${item.user.name || item.user.username || 'Unnamed User'} (ID: ${item.user._id})` : 'Unknown Employee'}
