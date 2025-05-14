@@ -5,7 +5,7 @@ import {
   BackendShift,
   getAllSchedulesAdmin,
   uploadScheduleDataAdmin,
-  AdminScheduleView,
+  PopulatedScheduleEntry, // Changed from AdminScheduleView
   getFilteredAvailableShiftsApi // Added for new thunk
 } from '../../api/apiService';
 import { User } from './authSlice';
@@ -17,7 +17,7 @@ export interface Shift extends BackendShift {
 
 interface EmployeeScheduleState {
   shifts: Shift[]; // For individual employee view
-  allEmployeeSchedules: AdminScheduleView[]; // For admin view
+  allEmployeeSchedules: PopulatedScheduleEntry[]; // For admin view, changed type
   isLoading: boolean; // For individual employee schedule
   isLoadingAllAdmin: boolean; // For admin fetching all schedules
   isUploadingAdmin: boolean; // For admin uploading schedule
@@ -90,7 +90,7 @@ export const updateUserShiftAvailability = createAsyncThunk<
 
 // Thunk for Admin to fetch all schedules
 export const fetchAllSchedulesForAdmin = createAsyncThunk<
-  AdminScheduleView[],
+  PopulatedScheduleEntry[], // Changed type
   void, // No argument needed
   { rejectValue: string }
 >('employeeSchedule/fetchAllSchedulesForAdmin', async (_, thunkAPI) => {
@@ -146,13 +146,11 @@ const employeeScheduleSlice = createSlice({
         state.shifts[index].isOpenForSwap = action.payload.isAvailableForSwap; // Corrected field name
       }
       // Also update in allEmployeeSchedules if the shift exists there
-      state.allEmployeeSchedules.forEach(empSchedule => {
-        const shiftIndex = empSchedule.shifts.findIndex(s => s._id === action.payload.shiftId);
-        if (shiftIndex !== -1) {
-          // Assuming empSchedule.shifts elements are also of type Shift (or BackendShift)
-          // and thus have isOpenForSwap
-          const shiftToUpdate = empSchedule.shifts[shiftIndex] as Shift; // Cast to ensure type safety
-          shiftToUpdate.isOpenForSwap = action.payload.isAvailableForSwap; // Corrected field name
+      // This logic might need adjustment as allEmployeeSchedules is now a flat list of PopulatedScheduleEntry
+      // Each item in allEmployeeSchedules *is* a schedule/shift itself.
+      state.allEmployeeSchedules.forEach(scheduleEntry => {
+        if (scheduleEntry._id === action.payload.shiftId) {
+          scheduleEntry.isOpenForSwap = action.payload.isAvailableForSwap;
         }
       });
     },
@@ -196,12 +194,24 @@ const employeeScheduleSlice = createSlice({
           state.shifts[index] = action.payload;
         }
          // Also update in allEmployeeSchedules if the shift exists there
-        state.allEmployeeSchedules.forEach(empSchedule => {
-          const shiftIndex = empSchedule.shifts.findIndex(s => s._id === action.payload._id);
-          if (shiftIndex !== -1) {
-            empSchedule.shifts[shiftIndex] = action.payload;
-          }
-        });
+        // Each item in allEmployeeSchedules *is* a schedule/shift itself.
+        const scheduleIndex = state.allEmployeeSchedules.findIndex(s => s._id === action.payload._id);
+        if (scheduleIndex !== -1) {
+          // Ensure the payload matches the structure of PopulatedScheduleEntry or map it
+          // For now, assuming action.payload is compatible or this update is primarily for 'shifts' state
+          // This part might need more careful handling if action.payload is just a 'Shift'
+          // and allEmployeeSchedules expects more (like the populated user).
+          // However, updateUserShiftAvailability returns a BackendShift, which PopulatedScheduleEntry extends.
+          // We need to ensure the 'user' part is preserved if it was there.
+          // A safer update might be:
+          // state.allEmployeeSchedules[scheduleIndex] = { ...state.allEmployeeSchedules[scheduleIndex], ...action.payload };
+          // For now, direct assignment if structure is compatible:
+           state.allEmployeeSchedules[scheduleIndex].isOpenForSwap = action.payload.isOpenForSwap;
+           // If other fields from action.payload (a Shift) need updating:
+           state.allEmployeeSchedules[scheduleIndex].workingHours = action.payload.workingHours;
+           state.allEmployeeSchedules[scheduleIndex].offDays = action.payload.offDays;
+           // etc. for fields common between Shift and PopulatedScheduleEntry's shift part
+        }
       })
       .addCase(updateUserShiftAvailability.rejected, (state, action) => {
         // state.isLoading = false;
@@ -212,7 +222,7 @@ const employeeScheduleSlice = createSlice({
         state.isLoadingAllAdmin = true;
         state.errorAllAdmin = null;
       })
-      .addCase(fetchAllSchedulesForAdmin.fulfilled, (state, action: PayloadAction<AdminScheduleView[]>) => {
+      .addCase(fetchAllSchedulesForAdmin.fulfilled, (state, action: PayloadAction<PopulatedScheduleEntry[]>) => {
         state.isLoadingAllAdmin = false;
         state.allEmployeeSchedules = action.payload;
       })

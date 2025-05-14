@@ -746,21 +746,26 @@ export const updateSwapRequestStatusAdmin = async (
 
 // Interface for schedule data when fetching all (might include employee info)
 // Assuming BackendShift is the detailed shift model from earlier in this file.
-export interface AdminScheduleView {
-  employee: {
+// Represents a single schedule entry as returned by /schedules/all
+export interface PopulatedScheduleEntry extends Omit<BackendShift, 'user'> {
+  user: {
     _id: string;
-    name?: string;
     username?: string;
-    // other relevant employee details
+    name?: string; // If selected by backend populate
+    role?: string;   // If selected by backend populate
+    // other relevant employee details populated by the backend
   };
-  shifts: BackendShift[];
+  // Include other schedule-specific fields not in BackendShift if any,
+  // e.g., skill, marketPlace directly on the schedule object
+  skill?: string;
+  marketPlace?: string;
 }
 
 // Fetch all employee schedules (for Admin)
-export const getAllSchedulesAdmin = async (): Promise<AdminScheduleView[]> => {
+// This endpoint returns a flat list of schedules, each with a populated user.
+export const getAllSchedulesAdmin = async (): Promise<PopulatedScheduleEntry[]> => {
   try {
-    // Example endpoint, adjust as per your backend
-    const response = await apiClient.get<AdminScheduleView[]>('/schedules/all');
+    const response = await apiClient.get<PopulatedScheduleEntry[]>('/schedules/all');
     return response.data;
   } catch (error: unknown) {
     console.error('Error fetching all schedules for admin:', error);

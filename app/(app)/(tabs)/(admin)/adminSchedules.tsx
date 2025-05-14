@@ -9,7 +9,7 @@ import {
   clearEmployeeScheduleErrors,
   resetUploadStatusAdmin
 } from '../../../../src/store/slices/employeeScheduleSlice'; // Adjusted path
-import { AdminScheduleView } from '../../../../src/api/apiService'; // Import AdminScheduleView from apiService
+import { PopulatedScheduleEntry } from '../../../../src/api/apiService'; // Changed from AdminScheduleView to PopulatedScheduleEntry
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import * as Clipboard from 'expo-clipboard';
@@ -64,31 +64,28 @@ const AdminSchedulesScreen = () => {
     dispatch(uploadScheduleByAdmin(scheduleDataInput));
   };
 
-  const convertSchedulesToCSV = (data: AdminScheduleView[]) => {
+  const convertSchedulesToCSV = (data: PopulatedScheduleEntry[]) => {
     if (!data || data.length === 0) return '';
-    // Updated CSV Header to reflect new Shift structure
-    const header = 'EmployeeID,EmployeeName,ShiftID,Week,WorkingHours,OffDays,IsOpenForSwap,CreatedAt\n';
+    const header = 'EmployeeID,EmployeeUsername,ScheduleID,Week,WorkingHours,OffDays,IsOpenForSwap,Skill,MarketPlace,CreatedAt\n';
     let rows = '';
-    data.forEach(empSchedule => {
-      const empId = empSchedule.employee._id;
-      const empName = empSchedule.employee.name || empSchedule.employee.username || 'N/A';
-      empSchedule.shifts.forEach((shift: Shift) => {
-        const escapeCSV = (val: string | number | boolean | string[] | undefined) => {
-          if (val === undefined || val === null) return '""';
-          if (Array.isArray(val)) return `"${val.join('; ').replace(/"/g, '""')}"`; // Handle array for offDays
-          return `"${String(val).replace(/"/g, '""')}"`;
-        };
-        rows += [
-          escapeCSV(empId),
-          escapeCSV(empName),
-          escapeCSV(shift._id),
-          escapeCSV(shift.week),
-          escapeCSV(shift.workingHours),
-          escapeCSV(shift.offDays),
-          escapeCSV(shift.isOpenForSwap),
-          escapeCSV(new Date(shift.createdAt).toISOString()) // Use ISO string for dates
-        ].join(',') + '\n';
-      });
+    data.forEach(schedule => {
+      const escapeCSV = (val: string | number | boolean | string[] | undefined) => {
+        if (val === undefined || val === null) return '""';
+        if (Array.isArray(val)) return `"${val.join('; ').replace(/"/g, '""')}"`;
+        return `"${String(val).replace(/"/g, '""')}"`;
+      };
+      rows += [
+        escapeCSV(schedule.user?._id),
+        escapeCSV(schedule.user?.username),
+        escapeCSV(schedule._id),
+        escapeCSV(schedule.week),
+        escapeCSV(schedule.workingHours),
+        escapeCSV(schedule.offDays),
+        escapeCSV(schedule.isOpenForSwap),
+        escapeCSV(schedule.skill),
+        escapeCSV(schedule.marketPlace),
+        escapeCSV(new Date(schedule.createdAt).toISOString())
+      ].join(',') + '\n';
     });
     return header + rows;
   };
@@ -142,16 +139,23 @@ const AdminSchedulesScreen = () => {
     </View>
   );
 
-  const renderEmployeeScheduleItem = ({ item }: { item: AdminScheduleView }) => (
+  // renderEmployeeScheduleItem now processes a single PopulatedScheduleEntry
+  const renderEmployeeScheduleItem = ({ item }: { item: PopulatedScheduleEntry }) => (
     <ThemedView style={styles.employeeScheduleContainer}>
       <ThemedText style={styles.employeeName}>
-        {item.employee ? `${item.employee.name || item.employee.username} (ID: ${item.employee._id})` : 'Unknown Employee'}
+        {item.user ? `${item.user.name || item.user.username || 'Unnamed User'} (ID: ${item.user._id})` : 'Unknown Employee'}
       </ThemedText>
-      {item.shifts && item.shifts.length > 0 ? (
-        item.shifts.map(renderShiftItem)
-      ) : (
-        <ThemedText style={styles.italicText}>No shifts scheduled for this employee.</ThemedText>
-      )}
+      {/* Display shift details directly from 'item' as it's a single schedule entry */}
+      <View style={styles.shiftItem}>
+        <ThemedText>Week: {item.week}</ThemedText>
+        <ThemedText>Working Hours: {item.workingHours}</ThemedText>
+        <ThemedText>Off Days: {Array.isArray(item.offDays) ? item.offDays.join(', ') : item.offDays}</ThemedText>
+        <ThemedText>Is Open For Swap: {item.isOpenForSwap ? 'Yes' : 'No'}</ThemedText>
+        {item.skill && <ThemedText>Skill: {item.skill}</ThemedText>}
+        {item.marketPlace && <ThemedText>Market Place: {item.marketPlace}</ThemedText>}
+        <ThemedText style={styles.smallText}>Created: {new Date(item.createdAt).toLocaleDateString()}</ThemedText>
+        <ThemedText style={styles.smallText}>Schedule ID: {item._id}</ThemedText>
+      </View>
     </ThemedView>
   );
 
@@ -195,11 +199,11 @@ const AdminSchedulesScreen = () => {
         </ThemedView>
       ) : (
         <FlatList
-          data={allEmployeeSchedules.slice().sort((a: AdminScheduleView, b: AdminScheduleView) =>
-            (a.employee?.name || a.employee?.username || '').localeCompare(b.employee?.name || b.employee?.username || '')
+          data={allEmployeeSchedules.slice().sort((a: PopulatedScheduleEntry, b: PopulatedScheduleEntry) =>
+            (a.user?.name || a.user?.username || '').localeCompare(b.user?.name || b.user?.username || '')
           )}
           renderItem={renderEmployeeScheduleItem}
-          keyExtractor={(item) => item.employee?._id || Math.random().toString()}
+          keyExtractor={(item) => item._id || Math.random().toString()}
           contentContainerStyle={styles.listContentContainer}
           refreshControl={ // RefreshControl needs to be imported from react-native
             <RNRefreshControl refreshing={isLoadingAllAdmin} onRefresh={onRefresh} colors={["#007bff"]} />
