@@ -1,11 +1,21 @@
 import { Href, Link } from 'expo-router';
 import { openBrowserAsync } from 'expo-web-browser';
-import { type ComponentProps } from 'react';
+import { type ComponentProps, Children, isValidElement } from 'react';
 import { Platform } from 'react-native';
+import { ThemedText } from './ThemedText'; // Import ThemedText
 
-type Props = Omit<ComponentProps<typeof Link>, 'href'> & { href: Href & string };
+type Props = Omit<ComponentProps<typeof Link>, 'href'> & { href: Href & string; children?: React.ReactNode };
 
-export function ExternalLink({ href, ...rest }: Props) {
+export function ExternalLink({ href, children, ...rest }: Props) {
+  const content = Children.map(children, child => {
+    if (typeof child === 'string') {
+      return <ThemedText type="link">{child}</ThemedText>;
+    }
+    // If child is already a ThemedText or some other element, render as is.
+    // This allows for icons or other custom content within the link.
+    return child;
+  });
+  
   return (
     <Link
       target="_blank"
@@ -19,6 +29,8 @@ export function ExternalLink({ href, ...rest }: Props) {
           await openBrowserAsync(href);
         }
       }}
-    />
+    >
+      {content}
+    </Link>
   );
 }

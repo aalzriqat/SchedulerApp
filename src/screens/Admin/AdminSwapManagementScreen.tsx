@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react'; // Added useMemo
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl, Button, Alert, Modal, TextInput, TouchableOpacity, Share, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store/store';
@@ -44,6 +44,8 @@ const AdminSwapManagementScreen = () => {
   const [selectedRequest, setSelectedRequest] = useState<APISwapRequest | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
+  type StatusFilter = APISwapRequest['status'] | 'all';
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   useEffect(() => {
     dispatch(fetchAllSwapRequestsForAdmin());
@@ -179,31 +181,83 @@ const AdminSwapManagementScreen = () => {
   };
 
 
-  const renderSwapRequestItem = ({ item }: { item: APISwapRequest }) => (
-    <ThemedView style={styles.itemContainer}>
-      <View style={styles.itemHeader}>
-        <ThemedText style={styles.requesterName}>Requester: {getEmployeeName(item.requester)}</ThemedText>
-        <Text style={[styles.status, { backgroundColor: getStatusStyle(item.status).backgroundColor, color: getStatusStyle(item.status).color }]}>{item.status.toUpperCase()}</Text>
-      </View>
-      {item.recipient && <ThemedText><ThemedText style={styles.bold}>Intended Recipient:</ThemedText> {getEmployeeName(item.recipient)}</ThemedText>}
-      
-      {renderShiftInfo(item.requesterSchedule, 'Requester\'s Offered', 'Offered by Requester (Shift)')}
-      {item.recipientSchedule && renderShiftInfo(item.recipientSchedule, 'Recipient\'s Matched', 'Matched with Recipient (Shift)')}
-      {item.week && <ThemedText><ThemedText style={styles.bold}>Swap concerns Week:</ThemedText> {item.week}</ThemedText>}
+  const renderSwapRequestItem = ({ item }: { item: APISwapRequest }) => {
+    const requesterName = getEmployeeName(item.requester);
+    const recipientName = item.recipient ? getEmployeeName(item.recipient) : 'N/A';
 
+    // Extract schedule details primarily from requesterSchedule for simplicity as per request
+    // Fallback if requesterSchedule is just an ID (though ideally it's populated)
+    const scheduleDetails = typeof item.requesterSchedule !== 'string' ? item.requesterSchedule : null;
+    const weekNumber = item.week ?? scheduleDetails?.week ?? 'N/A';
+    const workingHours = scheduleDetails?.workingHours ?? 'N/A';
+    const offDays = scheduleDetails && Array.isArray(scheduleDetails.offDays) ? scheduleDetails.offDays.join(', ') : 'N/A';
 
-      {item.notes && <ThemedText><ThemedText style={styles.bold}>Requester Notes:</ThemedText> {item.notes}</ThemedText>}
-      {item.adminNotes && <ThemedText><ThemedText style={styles.bold}>Admin Notes:</ThemedText> {item.adminNotes}</ThemedText>}
-      <ThemedText style={styles.submittedAt}>Created: {new Date(item.createdAt).toLocaleString()}</ThemedText>
-      
-      {item.status === 'pending' && !isUpdatingSwapAdmin && (
-        <TouchableOpacity style={[styles.manageButton, {backgroundColor: themedPrimaryButtonBg}]} onPress={() => handleOpenModal(item)}>
-          <Text style={[styles.manageButtonText, {color: themedPrimaryButtonText}]}>Manage</Text>
-        </TouchableOpacity>
-      )}
-      {isUpdatingSwapAdmin && selectedRequest?._id === item._id && <ActivityIndicator style={{marginTop: 10}} size="small" color={themedPrimaryButtonBg} />}
-    </ThemedView>
+    return (
+      <ThemedView style={styles.itemContainer}>
+        <View style={styles.itemHeader}>
+          <ThemedText style={styles.requesterName}>
+            {requesterName} {item.recipient ? `wants to swap with ${recipientName}` : 'requests open swap'}
+          </ThemedText>
+          <Text style={[styles.status, { backgroundColor: getStatusStyle(item.status).backgroundColor, color: getStatusStyle(item.status).color }]}>
+            {item.status.toUpperCase()}
+          </Text>
+        </View>
+
+        <ThemedText><ThemedText style={styles.bold}>Week:</ThemedText> {weekNumber}</ThemedText>
+        <ThemedText><ThemedText style={styles.bold}>Working Hours:</ThemedText> {workingHours}</ThemedText>
+        <ThemedText><ThemedText style={styles.bold}>Off Days:</ThemedText> {offDays}</ThemedText>
+        
+        <ThemedText style={[styles.dateInfo, { color: themedSubtleTextColor }]}><ThemedText style={styles.bold}>Created:</ThemedText> {new Date(item.createdAt).toLocaleString()}</ThemedText>
+        <ThemedText style={[styles.dateInfo, { color: themedSubtleTextColor }]}><ThemedText style={styles.bold}>Updated:</ThemedText> {item.updatedAt ? new Date(item.updatedAt).toLocaleString() : 'N/A'}</ThemedText>
+        
+        {/* Keep Manage button for pending requests */}
+        {item.status === 'pending' && !isUpdatingSwapAdmin && (
+          <TouchableOpacity style={[styles.manageButton, {backgroundColor: themedPrimaryButtonBg}]} onPress={() => handleOpenModal(item)}>
+            <Text style={[styles.manageButtonText, {color: themedPrimaryButtonText}]}>Manage</Text>
+          </TouchableOpacity>
+        )}
+        {isUpdatingSwapAdmin && selectedRequest?._id === item._id && <ActivityIndicator style={{marginTop: 10}} size="small" color={themedPrimaryButtonBg} />}
+      </ThemedView>
+    );
+  };
+
+  const filterButtons: { label: string; value: StatusFilter }[] = [
+    { label: 'All', value: 'all' },
+    { label: 'Pending', value: 'pending' },
+    { label: 'Approved', value: 'approved' },
+    { label: 'Rejected', value: 'rejected' },
+    { label: 'Cancelled', value: 'cancelled' },
+    { label: 'Auto-Approved', value: 'auto-approved' },
+  ];
+
+  const renderFilterButton = (filter: { label: string; value: StatusFilter }) => (
+    <TouchableOpacity
+      key={filter.value}
+      style={[
+        styles.filterButton,
+        statusFilter === filter.value
+          ? { backgroundColor: themedPrimaryButtonBg, borderColor: themedPrimaryButtonBg }
+          : { backgroundColor: themedSecondaryButtonBg, borderColor: themedPrimaryButtonBg }, // Keep border consistent or use themedBorderColor
+      ]}
+      onPress={() => setStatusFilter(filter.value)}
+    >
+      <Text style={[
+        styles.filterButtonText,
+        statusFilter === filter.value ? { color: themedPrimaryButtonText } : { color: themedSecondaryButtonText },
+      ]}>
+        {filter.label}
+      </Text>
+    </TouchableOpacity>
   );
+  
+  const filteredRequests = useMemo(() => {
+    let sortedRequests = allSwapRequestsAdmin.slice().sort((a: APISwapRequest, b: APISwapRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    if (statusFilter === 'all') {
+      return sortedRequests;
+    }
+    return sortedRequests.filter((req: APISwapRequest) => req.status === statusFilter);
+  }, [allSwapRequestsAdmin, statusFilter]);
+
 
   if (isLoadingAllSwapsAdmin && allSwapRequestsAdmin.length === 0) {
     return (
@@ -227,15 +281,20 @@ const AdminSwapManagementScreen = () => {
     <ThemedView style={[styles.container, {backgroundColor: themedBackgroundColor}]}>
       <View style={[styles.topBar, {borderBottomColor: themedBorderColor}]}>
         <ThemedText type="title" style={styles.mainHeader}>Manage Swap Requests</ThemedText>
-        <Button title="Export CSV" onPress={handleExport} disabled={isLoadingAllSwapsAdmin || allSwapRequestsAdmin.length === 0} color={themedPrimaryButtonBg} />
+        <Button title="Export CSV" onPress={handleExport} disabled={isLoadingAllSwapsAdmin || filteredRequests.length === 0} color={themedPrimaryButtonBg} />
       </View>
-      {allSwapRequestsAdmin.length === 0 && !isLoadingAllSwapsAdmin ? (
-        <ThemedView style={[styles.centerContent, {backgroundColor: themedBackgroundColor}]}>
-          <ThemedText>No swap requests found.</ThemedText>
+
+      <View style={styles.filterContainer}>
+        {filterButtons.map(renderFilterButton)}
+      </View>
+
+      {filteredRequests.length === 0 && !isLoadingAllSwapsAdmin ? (
+        <ThemedView style={[styles.centerContent, {backgroundColor: themedBackgroundColor, paddingTop: 20}]}>
+          <ThemedText>No swap requests found for "{statusFilter}" status.</ThemedText>
         </ThemedView>
       ) : (
         <FlatList
-          data={allSwapRequestsAdmin.slice().sort((a: APISwapRequest, b: APISwapRequest) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())}
+          data={filteredRequests}
           renderItem={renderSwapRequestItem}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContentContainer}
@@ -257,14 +316,38 @@ const AdminSwapManagementScreen = () => {
               <TouchableWithoutFeedback accessible={false}>
                 <ThemedView style={[styles.modalView, {backgroundColor: themedCardBackgroundColor}]}>
                   <ThemedText style={styles.modalTitle}>Manage Swap Request</ThemedText>
-              <ThemedText>Requester: {getEmployeeName(selectedRequest.requester)}</ThemedText>
-              {selectedRequest.recipient && <ThemedText>Intended Recipient: {getEmployeeName(selectedRequest.recipient)}</ThemedText>}
-              {renderShiftInfo(selectedRequest.requesterSchedule, 'Requester\'s Offered', 'Offered by Requester (Shift)')}
-              {selectedRequest.recipientSchedule && renderShiftInfo(selectedRequest.recipientSchedule, 'Recipient\'s Matched', 'Matched with Recipient (Shift)')}
-              {selectedRequest.week && <ThemedText><ThemedText style={styles.bold}>Swap concerns Week:</ThemedText> {selectedRequest.week}</ThemedText>}
-              
-              <TextInput
-                style={[styles.notesInput, {backgroundColor: themedInputBg, borderColor: themedInputBorder, color: themedInputText}]}
+                  
+                  {/* Minimal Info Display in Modal */}
+                  <ThemedText style={styles.modalDetailItem}><ThemedText style={styles.bold}>Requester:</ThemedText> {getEmployeeName(selectedRequest.requester)}</ThemedText>
+                  {selectedRequest.recipient && <ThemedText style={styles.modalDetailItem}><ThemedText style={styles.bold}>Recipient:</ThemedText> {getEmployeeName(selectedRequest.recipient)}</ThemedText>}
+                  
+                  {(() => {
+                    const scheduleDetails = typeof selectedRequest.requesterSchedule !== 'string' ? selectedRequest.requesterSchedule : null;
+                    const weekNum = selectedRequest.week ?? scheduleDetails?.week ?? 'N/A';
+                    const workHours = scheduleDetails?.workingHours ?? 'N/A';
+                    const off = scheduleDetails && Array.isArray(scheduleDetails.offDays) ? scheduleDetails.offDays.join(', ') : 'N/A';
+                    return (
+                      <>
+                        <ThemedText style={styles.modalDetailItem}><ThemedText style={styles.bold}>Week:</ThemedText> {weekNum}</ThemedText>
+                        <ThemedText style={styles.modalDetailItem}><ThemedText style={styles.bold}>Working Hours (Requester):</ThemedText> {workHours}</ThemedText>
+                        <ThemedText style={styles.modalDetailItem}><ThemedText style={styles.bold}>Off Days (Requester):</ThemedText> {off}</ThemedText>
+                      </>
+                    );
+                  })()}
+                  {/* Optionally, add recipient's schedule details if different and necessary for minimal view */}
+
+                  <ThemedText style={[styles.modalDateInfo, { color: themedSubtleTextColor }]}><ThemedText style={styles.bold}>Created:</ThemedText> {new Date(selectedRequest.createdAt).toLocaleString()}</ThemedText>
+                  <ThemedText style={[styles.modalDateInfo, { color: themedSubtleTextColor }]}><ThemedText style={styles.bold}>Updated:</ThemedText> {selectedRequest.updatedAt ? new Date(selectedRequest.updatedAt).toLocaleString() : 'N/A'}</ThemedText>
+                  
+                  {selectedRequest.notes && (
+                    <View style={[styles.notesSection, { backgroundColor: themedInputBg }]}>
+                        <ThemedText style={styles.bold}>Requester Notes:</ThemedText>
+                        <ThemedText style={[styles.modalNotes, {color: themedSubtleTextColor}]}>{selectedRequest.notes}</ThemedText>
+                    </View>
+                  )}
+                  
+                  <TextInput
+                    style={[styles.notesInput, {backgroundColor: themedInputBg, borderColor: themedInputBorder, color: themedInputText}]}
                 placeholder="Admin Notes (Optional)"
                 value={adminNotes}
                 onChangeText={setAdminNotes}
@@ -322,18 +405,59 @@ const styles = StyleSheet.create({
   // status_auto_approved: {},
   bold: { fontWeight: 'bold' },
   shiftDetailBlock: { marginVertical: 5, paddingLeft: 10, borderLeftWidth: 1 /* borderColor applied inline from themedBorderColor */ },
-  submittedAt: { fontSize: 12, marginTop: 8 /* color applied inline */ },
+  dateInfo: { fontSize: 12, marginTop: 3 }, // Color will be handled by ThemedText directly or via props
+  filterContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    // borderBottomColor will be themedBorderColor, applied inline or via parent ThemedView
+  },
+  filterButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20, // Pill shape
+    marginHorizontal: 4,
+    marginVertical: 4,
+    borderWidth: 1, // Adding border for better definition for secondary state
+    // borderColor is now applied dynamically in renderFilterButton
+  },
+  filterButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   manageButton: { marginTop: 12, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 5, alignSelf: 'flex-start' /* bgColor applied inline */ },
   manageButtonText: { fontWeight: 'bold' /* color applied inline */ },
   errorText: { fontSize: 16, marginBottom: 10, textAlign: 'center' /* color applied inline */ },
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }, // Overlay can keep its color
   modalView: { margin: 20, borderRadius: 12, padding: 25, alignItems: 'stretch', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5, width: '90%' /* bgColor from ThemedView */ },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' }, // Text color from ThemedText
+  modalDetailItem: { // Style for each piece of info in the modal
+    fontSize: 14,
+    marginBottom: 6,
+  },
+  modalDateInfo: {
+    fontSize: 12,
+    marginTop: 3,
+    // color applied inline via themedSubtleTextColor
+  },
+  notesSection: { // Container for notes in modal
+    marginTop: 10,
+    marginBottom: 10,
+    padding: 8,
+    // backgroundColor is now applied dynamically to notesSection view
+    borderRadius: 6,
+  },
+  modalNotes: { // Style for requester notes text in modal
+    fontStyle: 'italic',
+    fontSize: 13,
+    // color applied inline via themedSubtleTextColor
+  },
   notesInput: { borderWidth: 1, padding: 10, minHeight: 80, textAlignVertical: 'top', marginVertical: 15, fontSize: 15, borderRadius: 8 /* bgColor, borderColor, color, placeholderTextColor applied inline */ },
   modalActions: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 10, marginBottom: 20 },
   modalButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 15, borderRadius: 5, minWidth: 100, justifyContent: 'center' /* bgColor applied inline */ },
-  // approveButton: {}, // Specific bg applied inline
-  // rejectButton: {}, // Specific bg applied inline
   modalButtonText: { fontWeight: 'bold', marginLeft: 5, fontSize: 15 /* color applied inline */ },
 });
 

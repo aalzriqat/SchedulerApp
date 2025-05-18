@@ -1,22 +1,34 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, TextInputProps, TouchableOpacityProps, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
-import { AppDispatch, RootState } from '../../store/store'; // Use AppDispatch and RootState
-import { registerRequest, registerSuccessNoAuth, registerFailure, clearAuthError } from '../../store/slices/authSlice'; // Adjusted path
-import { registerUserApi } from '../../api/apiService'; // Import the new API function
+import { AppDispatch, RootState } from '../../store/store';
+import { registerRequest, registerSuccessNoAuth, registerFailure, clearAuthError } from '../../store/slices/authSlice';
+import { registerUserApi } from '../../api/apiService';
+import { ThemedView } from '@/components/ThemedView';
+import { ThemedText, ThemedTextProps } from '@/components/ThemedText';
+import { useThemeColor } from '@/hooks/useThemeColor';
+import { Colors } from '@/constants/Colors';
+import { ThemedButton } from '@/components/ThemedButton'; // Import ThemedButton
+import { ThemedInput } from '@/components/ThemedInput'; // Import ThemedInput
+
+// --- Re-using Placeholder Themed Components (Ideally imported from separate files) ---
+// Placeholder for ThemedInput removed as it's now imported
+// --- End of Placeholder Themed Components ---
+
 
 const RegisterScreen = () => {
   const router = useRouter();
-  const dispatch = useDispatch<AppDispatch>(); // Use AppDispatch
-  const { isLoading, error } = useSelector((state: RootState) => state.auth); // Use RootState
-
+  const dispatch = useDispatch<AppDispatch>();
+  const { isLoading, error } = useSelector((state: RootState) => state.auth);
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState('Employee'); // Default role, or add a picker
+  const [role, setRole] = useState('Employee');
+
+  const titleColor = useThemeColor({}, 'tint'); // For the main title
 
   React.useEffect(() => {
     if (error) {
@@ -25,44 +37,40 @@ const RegisterScreen = () => {
     }
   }, [error, dispatch]);
 
-  const handleRegister = async () => { // Make async
+  const handleRegister = async () => {
+    // Proactively clear any existing Redux error state before a new registration attempt
+    if (error) {
+      dispatch(clearAuthError());
+    }
+
     if (!username.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
-      Alert.alert('Validation Error','Please fill in all fields.');
-      return;
+      Alert.alert('Validation Error','Please fill in all fields.'); return;
     }
     if (password !== confirmPassword) {
-      Alert.alert('Validation Error',"Passwords don't match!");
-      return;
+      Alert.alert('Validation Error',"Passwords don't match!"); return;
     }
-    if (!email.includes('@')) { // Basic email validation
-      Alert.alert('Validation Error','Please enter a valid email address.');
-      return;
+    if (!email.includes('@')) {
+      Alert.alert('Validation Error','Please enter a valid email address.'); return;
     }
     
     dispatch(registerRequest());
-    console.log('Register attempt with:', username, email, password, role);
-
     try {
-      // Actual API call
       const response = await registerUserApi({ username, email, password, role });
-      console.log('Registration API success:', response.message);
       dispatch(registerSuccessNoAuth());
       Alert.alert('Registration Successful', response.message || 'Please login with your new account.', [
         { text: 'OK', onPress: () => router.replace('/login') }
       ]);
     } catch (apiError: any) {
-      console.error('Registration API error', apiError);
       dispatch(registerFailure(apiError.message || 'An unexpected error occurred during registration.'));
-      // Alert is handled by useEffect for error state
     }
   };
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Create Account</Text>
+      <ThemedView style={styles.container}>
+        <ThemedText type="title" style={[styles.title, {color: titleColor}]}>Create Account</ThemedText>
 
-        <TextInput
+        <ThemedInput
           style={styles.input}
           placeholder="Username"
           value={username}
@@ -70,7 +78,7 @@ const RegisterScreen = () => {
           autoCapitalize="none"
         />
 
-        <TextInput
+        <ThemedInput
           style={styles.input}
           placeholder="Email"
           value={email}
@@ -79,7 +87,7 @@ const RegisterScreen = () => {
           autoCapitalize="none"
         />
 
-        <TextInput
+        <ThemedInput
           style={styles.input}
           placeholder="Password"
           value={password}
@@ -87,7 +95,7 @@ const RegisterScreen = () => {
           secureTextEntry
         />
 
-        <TextInput
+        <ThemedInput
           style={styles.input}
           placeholder="Confirm Password"
           value={confirmPassword}
@@ -95,26 +103,22 @@ const RegisterScreen = () => {
           secureTextEntry
         />
         
-        {/* Optional: Role Picker if you want to allow role selection during registration
-            Otherwise, 'Employee' is default or set by backend.
-        <Text style={styles.label}>Role:</Text>
-        <Picker selectedValue={role} style={styles.input} onValueChange={(itemValue) => setRole(itemValue)}>
-          <Picker.Item label="Employee" value="Employee" />
-          <Picker.Item label="Admin" value="Admin" />
-        </Picker>
-        */}
+        {/* TODO: Consider a ThemedPicker for Role selection if it becomes user-configurable */}
 
-        <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={isLoading}>
-          <Text style={styles.buttonText}>{isLoading ? 'Registering...' : 'Register'}</Text>
-        </TouchableOpacity>
+        <ThemedButton
+          title={isLoading ? 'Registering...' : 'Register'}
+          onPress={handleRegister}
+          disabled={isLoading}
+          style={styles.button}
+        />
 
         <View style={styles.signInContainer}>
-          <Text style={styles.signInText}>Already have an account? </Text>
+          <ThemedText>Already have an account? </ThemedText>
           <TouchableOpacity onPress={() => router.replace('/login')}>
-            <Text style={styles.signInLink}>Sign In</Text>
+            <ThemedText type="link">Sign In</ThemedText>
           </TouchableOpacity>
         </View>
-      </View>
+      </ThemedView>
     </ScrollView>
   );
 };
@@ -124,50 +128,46 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
   },
-  container: {
+  container: { // Uses ThemedView
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
-    padding: 16,
+    padding: 20, // Increased padding
   },
-  title: {
-    fontSize: 28, // Slightly smaller than login
-    fontWeight: 'bold',
+  title: { // ThemedText handles base style
+    fontSize: 28,
     marginBottom: 24,
-    color: '#1e40af', // Darker blue
+    textAlign: 'center',
   },
-  input: {
+  input: { // For spacing, width. ThemedInput handles visuals.
     width: '100%',
-    backgroundColor: 'white',
-    borderColor: '#d1d5db',
-    borderWidth: 1,
-    borderRadius: 6,
-    padding: 12,
-    marginBottom: 16,
-    fontSize: 18,
+    marginBottom: 18,
   },
-  button: {
+  button: { // For spacing, width. ThemedButton handles visuals.
     width: '100%',
-    backgroundColor: '#1e40af', // Darker blue
-    padding: 16,
-    borderRadius: 6,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
+    marginTop: 12, // Adjusted margin
   },
   signInContainer: {
     marginTop: 24,
     flexDirection: 'row',
+    justifyContent: 'center',
   },
-  signInText: {
-    color: '#4b5563',
+
+  // Base styles for placeholder themed components (would be in their own files)
+  themedInputBase: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    fontSize: 16,
   },
-  signInLink: {
-    color: '#1e40af', // Darker blue
+  themedButtonBase: {
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  themedButtonTextBase: {
+    fontSize: 16,
     fontWeight: '600',
   },
 });

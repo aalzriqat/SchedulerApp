@@ -1,21 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, TextInput, TouchableOpacity, StyleSheet, Alert, TextProps, TextInputProps, TouchableOpacityProps, ViewStyle } from 'react-native'; // Added TouchableOpacityProps, ViewStyle
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { authProcessStart, authProcessSuccess, authProcessFailure, clearAuthError, User } from '../../store/slices/authSlice';
 import * as SecureStore from 'expo-secure-store';
-import { loginUser, getCurrentUserApi } from '../../api/apiService'; // Import loginUser and getCurrentUserApi
-// ApiLoginResponse type is not directly used here anymore if we adopt Option B fully
-// import type { LoginResponse as ApiLoginResponse } from '../../api/apiService';
+import { loginUser, getCurrentUserApi } from '../../api/apiService';
+import { ThemedView } from '@/components/ThemedView'; // Import ThemedView
+import { ThemedText, ThemedTextProps } from '@/components/ThemedText'; // Import ThemedText and its props
+import { useThemeColor } from '@/hooks/useThemeColor'; // Import useThemeColor
+import { Colors } from '@/constants/Colors'; // Import Colors for direct use if needed for placeholders
+import { ThemedButton } from '@/components/ThemedButton'; // Import ThemedButton
+import { ThemedInput } from '@/components/ThemedInput'; // Import ThemedInput
+import { ThemedCheckbox } from '@/components/ThemedCheckbox'; // Import ThemedCheckbox
+
 
 const LoginScreen = () => {
   const router = useRouter();
   const dispatch = useDispatch();
-  const { isLoading, error } = useSelector((state: any) => state.auth);
+  const { isLoading, error, user } = useSelector((state: any) => state.auth);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberEmail, setRememberEmail] = useState(false);
+
+  const titleColor = useThemeColor({}, 'tint'); // For the main title
 
   useEffect(() => {
     const loadRememberedEmail = async () => {
@@ -30,69 +38,54 @@ const LoginScreen = () => {
       }
     };
     loadRememberedEmail();
-  }, []); // Empty dependency array to run only on mount
+  }, []);
 
   useEffect(() => {
     if (error) {
-      Alert.alert('Login Error', error);
+      Alert.alert('Login Error', error); // Keep Alert for critical errors like login failure
       dispatch(clearAuthError());
     }
   }, [error, dispatch]);
 
   const handleLogin = () => {
+    // Proactively clear any existing Redux error state before a new login attempt
+    if (error) {
+      dispatch(clearAuthError());
+    }
+
     if (!email.trim() || !password.trim()) {
       Alert.alert('Validation Error', 'Please enter both email/username and password.');
       return;
     }
     dispatch(authProcessStart());
-    console.log('Login attempt with:', email);
-
-    // Option B: First, get the token from /users/login
-    loginUser({ email, password }) // This API call expects { token } if backend is not changed
-      .then(async (loginData) => { // loginData should be { token: string }
+    loginUser({ email, password })
+      .then(async (loginData) => {
         const token = loginData.token;
-        if (!token) {
-          throw new Error('Login successful, but no token received.');
-        }
+        if (!token) throw new Error('Login successful, but no token received.');
         await SecureStore.setItemAsync('userToken', token);
-        console.log('Token stored. Fetching user details...');
-
-        // Second, use the token to get user details from /users/me
-        const backendUser = await getCurrentUserApi(); // Interceptor adds the token
-        
+        const backendUser = await getCurrentUserApi();
         const frontendUser: User = {
-          id: backendUser._id, // Map _id to id
-          name: backendUser.username, // Use username as name, or add name to BackendUser if available
-          email: backendUser.email,
-          role: backendUser.role,
+          id: backendUser._id, name: backendUser.username,
+          email: backendUser.email, role: backendUser.role,
         };
-
         await SecureStore.setItemAsync('userData', JSON.stringify(frontendUser));
-
-        if (rememberEmail && email) {
-          await SecureStore.setItemAsync('rememberedEmail', email);
-          console.log('Email remembered.');
-        } else {
-          await SecureStore.deleteItemAsync('rememberedEmail');
-          console.log('Remembered email cleared.');
-        }
-        
-        console.log(`Full login successful for ${frontendUser.email}. User data and token stored.`);
+        if (rememberEmail && email) await SecureStore.setItemAsync('rememberedEmail', email);
+        else await SecureStore.deleteItemAsync('rememberedEmail');
         dispatch(authProcessSuccess({ user: frontendUser }));
+        // NavigationController will handle redirect
       })
       .catch((err: Error) => {
-        console.error('Login process failed:', err);
         dispatch(authProcessFailure(err.message || 'Login failed. Please check your credentials or server status.'));
       });
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>
+    <ThemedView style={styles.container}>
+      <ThemedText type="title" style={[styles.title, { color: titleColor }]}>
         Scheduler Login
-      </Text>
+      </ThemedText>
       
-      <TextInput
+      <ThemedInput
         style={styles.input}
         placeholder="Email or Username"
         value={email}
@@ -101,7 +94,7 @@ const LoginScreen = () => {
         autoCapitalize="none"
       />
       
-      <TextInput
+      <ThemedInput
         style={styles.input}
         placeholder="Password"
         value={password}
@@ -109,114 +102,103 @@ const LoginScreen = () => {
         secureTextEntry
       />
       
-      <TouchableOpacity
-        style={styles.button}
+      <ThemedButton
+        title={isLoading ? 'Logging in...' : 'Login'}
         onPress={handleLogin}
         disabled={isLoading}
-      >
-        <Text style={styles.buttonText}>
-          {isLoading ? 'Logging in...' : 'Login'}
-        </Text>
-      </TouchableOpacity>
+        style={styles.button}
+      />
 
-      <TouchableOpacity
-        style={styles.rememberContainer}
+      <ThemedCheckbox
+        label="Remember Email"
+        checked={rememberEmail}
         onPress={() => setRememberEmail(!rememberEmail)}
-      >
-        <View style={[styles.checkbox, rememberEmail && styles.checkboxChecked]}>
-          {rememberEmail && <Text style={styles.checkboxCheckmark}>✓</Text>}
-        </View>
-        <Text style={styles.rememberText}>Remember Email</Text>
-      </TouchableOpacity>
+        style={styles.rememberContainer}
+      />
       
       <View style={styles.signUpContainer}>
-        <Text style={styles.signUpText}>Don't have an account? </Text>
+        <ThemedText>Don't have an account? </ThemedText>
         <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
-          <Text style={styles.signUpLink}>Sign Up</Text>
+          <ThemedText type="link">Sign Up</ThemedText>
         </TouchableOpacity>
       </View>
-    </View>
+    </ThemedView>
   );
 };
 
+// Original styles will be mostly replaced or adapted by themed component styles
+// Keeping container and layout-specific styles
 const styles = StyleSheet.create({
-  container: {
+  container: { // Uses ThemedView, so background is handled
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6', 
-    padding: 16, 
+    padding: 20, // Increased padding
   },
-  title: {
-    fontSize: 30, 
-    fontWeight: 'bold',
-    marginBottom: 32, 
-    color: '#2563eb', 
+  title: { // ThemedText handles base style, this is for layout
+    marginBottom: 32,
+    textAlign: 'center',
   },
-  input: {
+  input: { // For spacing, width. ThemedInput handles visual styling.
     width: '100%',
-    backgroundColor: 'white',
-    borderColor: '#d1d5db', 
+    marginBottom: 18, // Adjusted spacing
+  },
+  button: { // For spacing, width. ThemedButton handles visual styling.
+    width: '100%',
+    marginTop: 8, // Added margin top
+  },
+  rememberContainer: { // For layout. ThemedCheckbox handles visuals.
+    width: '100%',
+    marginTop: 20, // Adjusted spacing
+    marginBottom: 12,
+  },
+  signUpContainer: {
+    marginTop: 24, // Adjusted spacing
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+
+  // Base styles for placeholder themed components (would be in their own files)
+  themedInputBase: {
     borderWidth: 1,
-    borderRadius: 6, 
-    padding: 12, 
-    marginBottom: 16, 
-    fontSize: 18, 
+    borderRadius: 8, // Softer radius
+    paddingHorizontal: 15, // More padding
+    paddingVertical: 12,
+    fontSize: 16, // Slightly smaller
   },
-  button: {
-    width: '100%',
-    backgroundColor: '#2563eb', 
-    padding: 16, 
-    borderRadius: 6, 
+  themedButtonBase: {
+    paddingVertical: 14, // More padding
+    borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  buttonText: {
-    color: 'white',
-    fontSize: 18, 
+  themedButtonTextBase: {
+    fontSize: 16,
     fontWeight: '600',
   },
-  rememberContainer: {
+  themedCheckboxContainerBase: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    marginTop: 16,
-    marginBottom: 8, // Added margin below remember me
-    // justifyContent: 'center', // Or 'flex-start' if you prefer left alignment
   },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 1,
-    borderColor: '#d1d5db', // border-gray-300
-    borderRadius: 3,
-    marginRight: 8,
+  themedCheckboxBoxBase: {
+    width: 22, // Slightly larger
+    height: 22,
+    borderWidth: 2, // Thicker border
+    borderRadius: 4,
+    marginRight: 10, // More spacing
     justifyContent: 'center',
     alignItems: 'center',
   },
-  checkboxChecked: {
-    backgroundColor: '#2563eb', // bg-blue-600
-    borderColor: '#2563eb',
+  themedCheckboxBoxCheckedBase: {
+    // backgroundColor and borderColor applied dynamically
   },
-  checkboxCheckmark: {
-    color: 'white',
-    fontSize: 12,
+  themedCheckboxCheckmarkBase: {
+    fontSize: 14, // Adjusted size
     fontWeight: 'bold',
   },
-  rememberText: {
+  themedCheckboxLabelBase: {
     fontSize: 16,
-    color: '#4b5563', // text-gray-600
-  },
-  signUpContainer: {
-    marginTop: 16, // Adjusted margin
-    flexDirection: 'row',
-  },
-  signUpText: {
-    color: '#4b5563',
-  },
-  signUpLink: {
-    color: '#2563eb',
-    fontWeight: '600',
-  },
+  }
 });
 
 export default LoginScreen;

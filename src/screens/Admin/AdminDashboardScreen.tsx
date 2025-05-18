@@ -1,16 +1,38 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Button, RefreshControl } from 'react-native';
+import React, { useEffect, useCallback } from 'react'; // Import useCallback
+import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store/store';
-import { fetchAdminDashboardAnalytics, clearAdminAnalyticsError, AdminAnalyticsData } from '../../store/slices/analyticsSlice';
+import { fetchAdminDashboardAnalytics, clearAdminAnalyticsError } from '../../store/slices/analyticsSlice';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
+import { useThemeColor } from '@/hooks/useThemeColor';
+import { Colors } from '@/constants/Colors'; // Import Colors
+
+// TODO: Replace TouchableOpacity with a ThemedButton component once available
+const ThemedButtonPlaceholder = ({ title, onPress, style, textStyle }: { title: string, onPress: () => void, style?: any, textStyle?: any }) => {
+  const buttonBackgroundColor = useThemeColor({}, 'buttonPrimaryBackground');
+  const buttonTextColor = useThemeColor({}, 'buttonPrimaryText');
+  return (
+    <TouchableOpacity onPress={onPress} style={[styles.themedButton, { backgroundColor: buttonBackgroundColor }, style]}>
+      <ThemedText style={[{ color: buttonTextColor }, textStyle]}>{title}</ThemedText>
+    </TouchableOpacity>
+  );
+};
+
 
 const AdminDashboardScreen = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { adminDashboardData, isLoadingAdminData, adminDataError } = useSelector(
     (state: RootState) => state.analytics
   );
+
+  const tintColor = useThemeColor({}, 'tint');
+  const cardBackgroundColor = useThemeColor({}, 'cardBackground');
+  const borderColor = useThemeColor({}, 'border');
+  const errorTextColor = useThemeColor({}, 'errorText');
+  const subtleTextColor = useThemeColor({}, 'subtleText');
+  const defaultTextColor = useThemeColor({}, 'text');
+
 
   useEffect(() => {
     dispatch(fetchAdminDashboardAnalytics());
@@ -19,28 +41,28 @@ const AdminDashboardScreen = () => {
     }
   }, [dispatch]);
 
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     dispatch(fetchAdminDashboardAnalytics());
-  };
+  }, [dispatch]);
 
   const renderMetricCard = (title: string, value: string | number | undefined, unit: string = '') => (
-    <ThemedView style={styles.metricCard}>
-      <ThemedText style={styles.metricTitle}>{title}</ThemedText>
-      <ThemedText style={styles.metricValue}>{value ?? 'N/A'} {unit}</ThemedText>
+    <ThemedView style={[styles.metricCard, { backgroundColor: cardBackgroundColor, borderColor: borderColor }]}>
+      <ThemedText type="defaultSemiBold" style={[styles.metricTitle, { color: subtleTextColor }]}>{title}</ThemedText>
+      <ThemedText type="subtitle" style={[styles.metricValue, { color: tintColor }]}>{value ?? 'N/A'} {unit}</ThemedText>
     </ThemedView>
   );
 
   const renderChartPlaceholder = (title: string) => (
-    <ThemedView style={styles.chartPlaceholder}>
-      <ThemedText style={styles.chartTitle}>{title}</ThemedText>
-      <ThemedText style={styles.chartText}>(Chart Placeholder - e.g., using react-native-svg-charts or a WebView library)</ThemedText>
+    <ThemedView style={[styles.chartPlaceholder, { borderColor: tintColor }]}>
+      <ThemedText type="defaultSemiBold" style={styles.chartTitle}>{title}</ThemedText>
+      <ThemedText style={[styles.chartText, { color: subtleTextColor }]}>(Chart Placeholder - e.g., using react-native-svg-charts or a WebView library)</ThemedText>
     </ThemedView>
   );
 
   if (isLoadingAdminData && !adminDashboardData) {
     return (
       <ThemedView style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color="#007bff" />
+        <ActivityIndicator size="large" color={tintColor} />
         <ThemedText>Loading dashboard data...</ThemedText>
       </ThemedView>
     );
@@ -49,8 +71,9 @@ const AdminDashboardScreen = () => {
   if (adminDataError) {
     return (
       <ThemedView style={[styles.container, styles.centerContent]}>
-        <ThemedText style={styles.errorText}>Error: {adminDataError}</ThemedText>
-        <Button title="Retry" onPress={onRefresh} color="#007bff" />
+        <ThemedText style={[styles.errorText, { color: errorTextColor }]}>Error: {adminDataError}</ThemedText>
+        {/* Use ThemedButtonPlaceholder or a real ThemedButton */}
+        <ThemedButtonPlaceholder title="Retry" onPress={onRefresh} />
       </ThemedView>
     );
   }
@@ -59,7 +82,8 @@ const AdminDashboardScreen = () => {
     return (
       <ThemedView style={[styles.container, styles.centerContent]}>
         <ThemedText>No analytics data available.</ThemedText>
-         <Button title="Refresh" onPress={onRefresh} color="#007bff" />
+        {/* Use ThemedButtonPlaceholder or a real ThemedButton */}
+        <ThemedButtonPlaceholder title="Refresh" onPress={onRefresh} />
       </ThemedView>
     );
   }
@@ -70,24 +94,24 @@ const AdminDashboardScreen = () => {
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.scrollContentContainer}
-      refreshControl={<RefreshControl refreshing={isLoadingAdminData} onRefresh={onRefresh} colors={["#007bff"]}/>}
+      refreshControl={<RefreshControl refreshing={isLoadingAdminData} onRefresh={onRefresh} colors={[tintColor]} tintColor={tintColor} />}
     >
       <ThemedText type="title" style={styles.mainTitle}>Admin Analytics Dashboard</ThemedText>
       
-      <ThemedView style={styles.section}>
+      <ThemedView style={[styles.section, { backgroundColor: cardBackgroundColor, borderColor: borderColor }]}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>Schedule Adherence</ThemedText>
         {renderMetricCard('Total Shifts Tracked', scheduleAdherence?.totalShifts)}
         {renderMetricCard('On-Time Arrival', scheduleAdherence?.onTimePercentage, '%')}
       </ThemedView>
 
-      <ThemedView style={styles.section}>
+      <ThemedView style={[styles.section, { backgroundColor: cardBackgroundColor, borderColor: borderColor }]}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>Swap Request Trends</ThemedText>
         {renderMetricCard('Total Swap Requests', swapRequestTrends?.totalRequests)}
         {renderMetricCard('Approval Rate', swapRequestTrends?.approvedPercentage, '%')}
         {renderMetricCard('Avg. Time to Approve', swapRequestTrends?.averageTimeToApprove)}
       </ThemedView>
 
-      <ThemedView style={styles.section}>
+      <ThemedView style={[styles.section, { backgroundColor: cardBackgroundColor, borderColor: borderColor }]}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>Leave Trends</ThemedText>
         {renderMetricCard('Total Leave Requests', leaveTrends?.totalRequests)}
         {leaveTrends?.commonLeaveTypes?.map((lt: { type: string; count: number }) => (
@@ -97,12 +121,12 @@ const AdminDashboardScreen = () => {
         ))}
       </ThemedView>
       
-      <ThemedView style={styles.section}>
+      <ThemedView style={[styles.section, { backgroundColor: cardBackgroundColor, borderColor: borderColor }]}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>Schedule Heatmap (Peak Times)</ThemedText>
         {renderChartPlaceholder('Shift Demand Heatmap')}
         <View style={styles.dataPointContainer}>
-          {scheduleHeatmap?.slice(0,5).map((point: { date: string; intensity: number }) => ( // Display a few points as example
-            <ThemedText key={point.date} style={styles.dataPoint}>{point.date}: Intensity {point.intensity}</ThemedText>
+          {scheduleHeatmap?.slice(0,5).map((point: { date: string; intensity: number }) => (
+            <ThemedText key={point.date} style={[styles.dataPoint, { color: defaultTextColor }]}>{point.date}: Intensity {point.intensity}</ThemedText>
           ))}
         </View>
       </ThemedView>
@@ -125,8 +149,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  mainTitle: {
-    fontSize: 24,
+  mainTitle: { // Consider adjusting ThemedText 'title' style or creating a new variant
+    fontSize: 24, // Current ThemedText 'title' is 32.
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
@@ -135,42 +159,36 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     padding: 15,
     borderRadius: 8,
-    // backgroundColor: '#f9f9f9', // Consider theme
     borderWidth: 1,
-    borderColor: '#e0e0e0', // Consider theme
+    // borderColor is now applied dynamically
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+  sectionTitle: { // Consider adjusting ThemedText 'subtitle' style or creating a new variant
+    fontSize: 18, // Current ThemedText 'subtitle' is 20.
+    fontWeight: '600', // Current ThemedText 'subtitle' is 'bold'
     marginBottom: 10,
   },
   metricCard: {
     padding: 12,
     borderRadius: 6,
-    // backgroundColor: '#ffffff', // Consider theme
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#d0d0d0', // Consider theme
-    // shadowColor: "#000",
-    // shadowOffset: { width: 0, height: 1 },
-    // shadowOpacity: 0.1,
-    // shadowRadius: 2,
-    // elevation: 2,
+    // backgroundColor and borderColor are now applied dynamically
+    // Consider adding shadow from a design system if desired
   },
   metricTitle: {
-    fontSize: 15,
+    fontSize: 15, // Consider a ThemedText type e.g. 'caption' or 'smallSemiBold'
     fontWeight: '500',
-    // color: '#555', // Consider theme
     marginBottom: 4,
+    // color is now applied dynamically
   },
   metricValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    // color: '#007bff', // Consider theme
+    fontSize: 20, // Matches ThemedText 'subtitle' fontSize
+    fontWeight: 'bold', // Matches ThemedText 'subtitle' fontWeight
+    // color is now applied dynamically (tintColor)
   },
   chartPlaceholder: {
     borderWidth: 2,
-    borderColor: '#007bff', // Consider theme (dashed or themed)
+    // borderColor is now applied dynamically
     borderStyle: 'dashed',
     borderRadius: 8,
     padding: 20,
@@ -179,28 +197,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 150,
   },
-  chartTitle: {
+  chartTitle: { // Matches ThemedText 'defaultSemiBold'
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: 'bold', // defaultSemiBold is '600'
     marginBottom: 10,
   },
   chartText: {
-    // color: '#777', // Consider theme
     textAlign: 'center',
+    // color is now applied dynamically
   },
   dataPointContainer: {
     marginTop: 10,
   },
   dataPoint: {
-    fontSize: 13,
-    // color: '#444', // Consider theme
+    fontSize: 13, // Consider a ThemedText type e.g. 'caption'
     marginBottom: 3,
+    // color is now applied dynamically
   },
   errorText: {
-    color: 'red',
+    // color is now applied dynamically
     fontSize: 16,
     textAlign: 'center',
+    marginBottom: 10, // Added margin for button spacing
   },
+  themedButton: { // Placeholder style for ThemedButton
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+  }
 });
 
 export default AdminDashboardScreen;
